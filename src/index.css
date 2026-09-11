@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Keep anchored sections clear of the fixed navbar. */
+    scroll-padding-top: 5rem;
+  }
+
+  /* Respect the OS "reduce motion" setting: vestibular disorders and motion
+     sickness make the bouncing arrow, fade-ups and smooth anchor scrolling
+     genuinely unpleasant. Everything still works, it just arrives instantly. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  body {
+    @apply bg-base text-ink font-sans;
+  }
+
+  ::selection {
+    @apply bg-accent text-base;
+  }
+
+  /* Visible, on-brand focus ring for keyboard users everywhere. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-base;
+  }
+}
+
+@layer components {
+  .section {
+    @apply mx-auto w-full max-w-content px-5 py-20 sm:px-8 md:py-28;
+  }
+
+  .section-title {
+    @apply font-display text-4xl font-semibold tracking-tight text-ink md:text-5xl;
+  }
+
+  .section-kicker {
+    @apply mb-3 text-xs font-medium uppercase tracking-[0.25em] text-accent;
+  }
+
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-muted;
+  }
+
+  .field-input {
+    @apply w-full rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-ink
+           placeholder:text-subtle transition-colors
+           focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   react-day-picker v9 theming.
+   The library ships unstyled CSS variables; these map it onto the site palette.
+   --------------------------------------------------------------------------- */
+.rdp-root {
+  --rdp-accent-color: theme('colors.accent');
+  --rdp-accent-background-color: theme('colors.surface-2');
+  --rdp-day-height: 2.75rem;
+  --rdp-day-width: 2.75rem;
+  --rdp-day_button-height: 2.75rem;
+  --rdp-day_button-width: 2.75rem;
+  --rdp-day_button-border-radius: 0.6rem;
+  --rdp-disabled-opacity: 1;
+  --rdp-today-color: theme('colors.accent');
+  margin: 0;
+}
+
+.rdp-month_caption {
+  @apply mb-2 flex h-11 items-center justify-center;
+}
+
+.rdp-caption_label {
+  @apply font-display text-xl font-semibold text-ink;
+}
+
+.rdp-nav {
+  @apply absolute right-0 top-0 flex h-11 items-center gap-1;
+}
+
+.rdp-button_previous,
+.rdp-button_next {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line
+         bg-surface-2 text-muted transition-colors hover:text-ink disabled:opacity-30;
+}
+
+.rdp-button_previous svg,
+.rdp-button_next svg {
+  fill: currentColor;
+}
+
+.rdp-weekday {
+  @apply pb-2 text-xs font-medium uppercase tracking-wider text-muted;
+}
+
+/* ---------------------------------------------------------------------------
+   Day states. The calendar exists to answer one question - "can I have this
+   day?" - so the three answers must be distinguishable at a glance and never
+   confusable with each other:
+
+     available  solid chip, bright text, accent on hover   -> invites a tap
+     booked     red-tinted chip, struck through            -> taken, not empty
+     past       no chip, recessed grey, no decoration      -> gone, not refused
+
+   Past and booked used to render almost identically (and past days kept full
+   brightness, so they looked more tappable than available ones). Hue, not just
+   opacity, now carries the difference, which also survives greyscale and the
+   common forms of colour blindness because the shapes differ too.
+   --------------------------------------------------------------------------- */
+.rdp-day_button {
+  @apply text-sm font-medium transition-colors;
+  border: 1px solid transparent;
+}
+
+/* available */
+.rdp-day.day-free .rdp-day_button {
+  @apply bg-surface-2 text-ink;
+}
+
+.rdp-day.day-free .rdp-day_button:hover {
+  @apply border-accent bg-accent/10 text-accent-soft;
+}
+
+/* booked or blocked by the owner */
+.rdp-day.day-taken .rdp-day_button {
+  @apply cursor-not-allowed border-danger/25 bg-danger/10 text-danger-soft line-through;
+  text-decoration-thickness: 1px;
+}
+
+/* already gone */
+.rdp-day.day-past .rdp-day_button {
+  @apply cursor-not-allowed bg-transparent text-faint;
+}
+
+.rdp-disabled .rdp-day_button {
+  @apply cursor-not-allowed;
+}
+
+.rdp-selected .rdp-day_button {
+  @apply border-accent bg-accent font-semibold text-base;
+}
+
+.rdp-today:not(.rdp-selected) .rdp-day_button {
+  @apply border-accent/60 font-semibold;
+}
+
+/* Instagram's embed widget has a hard-coded min-width that overflows small
+   phones; this keeps it inside the grid cell. */
+.instagram-media {
+  min-width: 0 !important;
+  width: 100% !important;
+  margin: 0 !important;
+}

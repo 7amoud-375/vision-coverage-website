@@ -1,0 +1,112 @@
+import { useState } from 'react'
+import { CATEGORIES } from '../../lib/config'
+import { normalizeInstagramUrl } from '../../lib/instagram'
+import Button from '../ui/Button'
+import Field from '../ui/Field'
+import Notice from '../ui/Notice'
+
+const blank = { title: '', category: CATEGORIES[0], description: '', instagram_url: '' }
+
+/**
+ * Add / edit form for a portfolio item. Pass `item` to edit, omit it to create.
+ * The Instagram URL is canonicalised before saving so share links with tracking
+ * parameters still produce a working embed.
+ */
+export default function PortfolioForm({ item, onSubmit, onCancel }) {
+  const [values, setValues] = useState(() =>
+    item
+      ? {
+          title: item.title,
+          category: item.category,
+          description: item.description ?? '',
+          instagram_url: item.instagram_url,
+        }
+      : blank
+  )
+  const [errors, setErrors] = useState({})
+  const [submitError, setSubmitError] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const update = (field) => (e) => {
+    const { value } = e.target
+    setValues((prev) => ({ ...prev, [field]: value }))
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    const found = {}
+    if (!values.title.trim()) found.title = 'A title is required.'
+
+    const permalink = normalizeInstagramUrl(values.instagram_url)
+    if (!values.instagram_url.trim()) found.instagram_url = 'Paste the Instagram link.'
+    else if (!permalink)
+      found.instagram_url = 'That is not an Instagram post or reel link.'
+
+    setErrors(found)
+    if (Object.keys(found).length > 0) return
+
+    setBusy(true)
+    setSubmitError(null)
+    const { error } = await onSubmit({
+      title: values.title.trim(),
+      category: values.category,
+      description: values.description.trim() || null,
+      instagram_url: permalink,
+    })
+    setBusy(false)
+    if (error) setSubmitError(error)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <Field
+        label="Instagram post or reel URL"
+        required
+        value={values.instagram_url}
+        onChange={update('instagram_url')}
+        error={errors.instagram_url}
+        placeholder="https://www.instagram.com/reel/ABC123/"
+        hint="Share links with tracking parameters are fine - they get cleaned up automatically."
+      />
+
+      <Field
+        label="Title"
+        required
+        value={values.title}
+        onChange={update('title')}
+        error={errors.title}
+        placeholder="Golden Hour Vows"
+      />
+
+      <Field as="select" label="Category" required value={values.category} onChange={update('category')}>
+        {CATEGORIES.map((category) => (
+          <option key={category} value={category}>
+            {category}
+          </option>
+        ))}
+      </Field>
+
+      <Field
+        as="textarea"
+        label="Description"
+        rows={3}
+        value={values.description}
+        onChange={update('description')}
+        placeholder="One or two lines about the shoot."
+      />
+
+      <Notice tone="error">{submitError}</Notice>
+
+      <div className="flex justify-end gap-3 pt-1">
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={busy}>
+          {item ? 'Save changes' : 'Add work'}
+        </Button>
+      </div>
+    </form>
+  )
+}
