@@ -77,8 +77,8 @@ export default function AccountTab({ user }) {
     setValues({ current: '', next: '', confirm: '' })
     setDone(
       signOutError
-        ? 'Password changed. Other devices may still be signed in - sign out there manually.'
-        : 'Password changed, and any other device that was signed in has been signed out.'
+        ? 'Other devices may still be signed in - sign out there manually.'
+        : 'Any other device that was signed in has been signed out. This browser stays signed in.'
     )
   }
 
@@ -88,6 +88,38 @@ export default function AccountTab({ user }) {
       <p className="mt-0.5 text-sm text-muted">
         Signed in as <span className="text-ink">{user.email}</span>
       </p>
+
+      {/* A distinct panel rather than a one-line notice. Changing the password
+          that guards every client's contact details deserves an unmistakable
+          confirmation - the same treatment the public booking form gets.
+          role="status" so it is announced rather than only seen. */}
+      {done && (
+        <div
+          role="status"
+          className="mt-5 animate-fade-up rounded-xl border border-success/40 bg-success/10 p-5"
+        >
+          <div className="flex items-start gap-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success/20">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5 text-success"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                aria-hidden="true"
+              >
+                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <div>
+              <h3 className="font-display text-lg font-semibold text-ink">
+                Password changed successfully
+              </h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted">{done}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} noValidate className="card mt-5 space-y-4 p-5">
         <h3 className="font-display text-base font-semibold uppercase tracking-[0.12em] text-ink">
@@ -126,7 +158,6 @@ export default function AccountTab({ user }) {
         />
 
         <Notice tone="error">{formError}</Notice>
-        <Notice tone="success">{done}</Notice>
 
         <div className="flex justify-end">
           <Button type="submit" loading={busy}>

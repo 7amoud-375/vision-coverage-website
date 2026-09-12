@@ -7,6 +7,10 @@
     scroll-behavior: smooth;
     /* Keep anchored sections clear of the fixed navbar. */
     scroll-padding-top: 5rem;
+    /* The window scrollbar. Firefox syntax; the ::-webkit-* rules below cover
+       Chrome, Edge and Safari. */
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a45 transparent;
   }
 
   /* Respect the OS "reduce motion" setting: vestibular disorders and motion
@@ -31,6 +35,25 @@
     @apply bg-base text-ink font-sans;
   }
 
+  html::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: theme('colors.base');
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background-color: #3a3a45;
+    border-radius: 9999px;
+    border: 3px solid theme('colors.base');
+    background-clip: content-box;
+  }
+
+  html::-webkit-scrollbar-thumb:hover {
+    background-color: #55555f;
+  }
+
   ::selection {
     @apply bg-accent text-base;
   }
@@ -38,6 +61,47 @@
   /* Visible, on-brand focus ring for keyboard users everywhere. */
   :focus-visible {
     @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-base;
+  }
+}
+
+@layer utilities {
+  /* ---------------------------------------------------------------------------
+     Brand scrollbar. The platform default is a light grey bar that looks pasted
+     onto a black page. Thin, inset, and only as visible as it needs to be.
+
+     Both syntaxes are needed: scrollbar-color for Firefox, the ::-webkit-*
+     pseudo-elements for Chrome, Edge and Safari. The transparent border plus
+     background-clip trick is what insets the thumb from the track edge - there
+     is no padding property for scrollbars.
+     --------------------------------------------------------------------------- */
+  .scrollbar-brand {
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a45 transparent;
+  }
+
+  .scrollbar-brand::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+
+  .scrollbar-brand::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-brand::-webkit-scrollbar-thumb {
+    background-color: #3a3a45;
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  .scrollbar-brand::-webkit-scrollbar-thumb:hover {
+    background-color: #55555f;
+  }
+
+  /* Stops the corner where two scrollbars meet rendering as a pale square. */
+  .scrollbar-brand::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }
 

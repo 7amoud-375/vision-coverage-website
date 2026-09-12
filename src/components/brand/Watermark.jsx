@@ -1,9 +1,13 @@
 import Mark from './Mark'
 
-// Literal class strings on purpose. Tailwind generates utilities by scanning
-// source text, so a template like `rotate-[${n}deg]` would never be built -
-// and rotation has to come from a Tailwind class rather than an inline style,
-// or it would overwrite the translate used by the centred positions.
+// Literal class strings on purpose. Tailwind builds utilities by scanning source
+// text, so a class name assembled at runtime from a variable is never generated
+// at all - and rotation has to come from a Tailwind class rather than an inline
+// style, or it would overwrite the translate the centred positions rely on.
+//
+// (This comment deliberately avoids spelling out an interpolated class name:
+// the scanner reads comments too, and an earlier version of this note made
+// Tailwind emit a broken rule from the example it contained.)
 const POSITIONS = {
   'top-right': '-right-20 -top-24',
   'top-left': '-left-24 -top-28',

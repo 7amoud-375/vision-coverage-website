@@ -97,8 +97,22 @@ export default function Footer() {
           )}
         </div>
 
-        <div className="mt-14 border-t border-line pt-6 text-center text-xs text-muted">
-          &copy; {new Date().getFullYear()} {site.name}. All rights reserved.
+        <div className="relative mt-14 space-y-1.5 border-t border-line pt-6 text-center text-xs text-muted">
+          <p>
+            &copy; {new Date().getFullYear()} {site.name}. All rights reserved.
+          </p>
+          <p>
+            Coded and designed by{' '}
+            <a
+              href="https://my-portfolio-chi-two-55.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-ink underline decoration-line underline-offset-4
+                         transition-colors hover:text-accent hover:decoration-accent"
+            >
+              Ibrahim Hamoud
+            </a>
+          </p>
         </div>
       </div>
     </footer>

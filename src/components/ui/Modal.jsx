@@ -139,7 +139,7 @@ export default function Modal({ open, onClose, title, size = 'md', children }) {
         {/* min-h-0 is what lets this shrink inside the flex column; without it
             the body refuses to scroll and pushes the panel open again.
             overscroll-contain stops the scroll chaining to the page behind. */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6 sm:py-5">
+        <div className="scrollbar-brand min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6 sm:py-5">
           {children}
         </div>
       </div>
