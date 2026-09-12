@@ -1,7 +1,17 @@
-import { about, site } from '../../lib/config'
+import { about as aboutDefaults, site } from '../../lib/config'
+import { useAboutContent } from '../../hooks/useAboutContent'
 import Watermark from '../brand/Watermark'
 
 export default function About() {
+  const { content } = useAboutContent()
+
+  // Config supplies the fallback, so the section renders correctly before the
+  // migration is run and before the owner's first save.
+  const photo = content?.photo_url || aboutDefaults.photo
+  const highlights = content?.highlights?.length
+    ? content.highlights
+    : aboutDefaults.highlights
+
   return (
     <section id="about" className="relative overflow-hidden border-t border-line bg-surface/30">
       <Watermark position="top-right" size="xl" rotate={12} from="lg" />
@@ -9,9 +19,9 @@ export default function About() {
         {/* --- portrait --- */}
         <div className="mx-auto w-full max-w-sm md:mx-0">
           <div className="aspect-[4/5] overflow-hidden rounded-xl border border-line bg-surface-2">
-            {about.photo ? (
+            {photo ? (
               <img
-                src={about.photo}
+                src={photo}
                 alt={site.ownerName}
                 loading="lazy"
                 className="h-full w-full object-cover"
@@ -28,7 +38,7 @@ export default function About() {
           </div>
 
           <dl className="mt-6 grid grid-cols-3 gap-3">
-            {about.stats.map((stat) => (
+            {aboutDefaults.stats.map((stat) => (
               <div key={stat.label} className="card px-3 py-4 text-center">
                 <dt className="sr-only">{stat.label}</dt>
                 <dd className="font-display text-2xl font-semibold text-accent">{stat.value}</dd>
@@ -46,7 +56,7 @@ export default function About() {
           <h2 className="section-title">Behind the camera</h2>
 
           <div className="mt-6 space-y-4">
-            {about.bio.map((paragraph) => (
+            {aboutDefaults.bio.map((paragraph) => (
               <p key={paragraph.slice(0, 24)} className="leading-relaxed text-muted">
                 {paragraph}
               </p>
@@ -54,7 +64,7 @@ export default function About() {
           </div>
 
           <dl className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2">
-            {about.highlights.map((item) => (
+            {highlights.map((item) => (
               <div key={item.label} className="bg-surface px-5 py-4">
                 <dt className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
                   {item.label}

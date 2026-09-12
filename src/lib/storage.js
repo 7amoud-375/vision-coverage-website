@@ -173,7 +173,7 @@ async function putObject(path, blob, contentType, onProgress) {
     if (result.code === 404 || /bucket not found/i.test(detail)) {
       return {
         error:
-          'The storage bucket does not exist. Run supabase/migration-video-upload.sql in the ' +
+          'The storage bucket does not exist. Run supabase/migration-video-storage.sql in the ' +
           'SQL editor first.',
       }
     }
@@ -264,4 +264,71 @@ export function storagePathFromUrl(url) {
   const marker = `/storage/v1/object/public/${BUCKET}/`
   const index = url.indexOf(marker)
   return index === -1 ? null : url.slice(index + marker.length)
+}
+
+// ---------------------------------------------------------------------------
+//  Images
+// ---------------------------------------------------------------------------
+
+export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp'
+
+/** Generous, because the file is resized in the browser before it is sent. */
+const MAX_IMAGE_INPUT_BYTES = 25 * 1024 * 1024
+
+/**
+ * Resize and re-encode an image in the browser, then upload it.
+ *
+ * Phone photos are routinely 4-8 MB at 4000px wide. Sending that untouched
+ * would waste storage and, worse, make every visitor download it - egress is
+ * the binding limit on the free tier. Re-encoding to a sensible edge length and
+ * stepping the JPEG quality down until it fits the budget keeps the page light.
+ *
+ * Returns { url, error } and never throws.
+ */
+export async function uploadImage(file, { maxEdge = 1600, maxBytes = 500 * 1024 } = {}) {
+  if (!file) return { error: 'No file selected.' }
+
+  const looksLikeImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(file.name)
+  if (!looksLikeImage) return { error: 'Please choose a JPG, PNG or WebP image.' }
+
+  if (file.size > MAX_IMAGE_INPUT_BYTES) {
+    return { error: `That image is ${prettyMB(file.size)}. Please pick one under 25 MB.` }
+  }
+
+  const objectUrl = URL.createObjectURL(file)
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('decode failed'))
+      img.src = objectUrl
+    })
+
+    const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(image.naturalWidth * scale)
+    canvas.height = Math.round(image.naturalHeight * scale)
+    if (!canvas.width || !canvas.height) return { error: 'That image could not be read.' }
+
+    const ctx = canvas.getContext('2d')
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+    // Step the quality down rather than guessing once: the same pixel count
+    // compresses very differently depending on the subject.
+    let blob = null
+    for (const quality of [0.88, 0.8, 0.72, 0.6, 0.5]) {
+      blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality))
+      if (blob && blob.size <= maxBytes) break
+    }
+    if (!blob) return { error: 'That image could not be processed.' }
+
+    return await putObject(`${crypto.randomUUID()}.jpg`, blob, 'image/jpeg')
+  } catch (err) {
+    console.error('[storage] image upload failed', err)
+    return { error: 'That image could not be read. Try a JPG or PNG.' }
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
 }

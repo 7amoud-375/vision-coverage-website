@@ -6,6 +6,7 @@ import { site } from '../lib/config'
 import AdminLogin from '../components/admin/AdminLogin'
 import ReservationsTab from '../components/admin/ReservationsTab'
 import PortfolioTab from '../components/admin/PortfolioTab'
+import AboutTab from '../components/admin/AboutTab'
 import AccountTab from '../components/admin/AccountTab'
 import Button from '../components/ui/Button'
 import Notice from '../components/ui/Notice'
@@ -14,6 +15,7 @@ import Spinner from '../components/ui/Spinner'
 const TABS = [
   { id: 'reservations', label: 'Reservations' },
   { id: 'portfolio', label: 'Work' },
+  { id: 'about', label: 'About' },
   { id: 'account', label: 'Account' },
 ]
 
@@ -116,6 +118,7 @@ export default function Admin() {
       <main className="mx-auto max-w-content px-5 py-8 sm:px-8">
         {tab === 'reservations' && <ReservationsTab />}
         {tab === 'portfolio' && <PortfolioTab />}
+        {tab === 'about' && <AboutTab />}
         {tab === 'account' && <AccountTab user={user} />}
       </main>
     </div>
