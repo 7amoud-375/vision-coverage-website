@@ -5,14 +5,37 @@ const BUCKET = 'portfolio'
 /** Matches the bucket's own file_size_limit, so we fail early and politely. */
 export const MAX_VIDEO_BYTES = 50 * 1024 * 1024
 
-/** Long clips burn the egress budget; a portfolio piece is a highlight, not a film. */
-export const MAX_VIDEO_SECONDS = 150
+// There is deliberately no duration limit. Length was a bad proxy for the thing
+// that actually matters: a tightly encoded five-minute clip can sit under the
+// size cap while a badly exported thirty-second one blows straight past it. The
+// file size below is the real constraint, so that is what gets checked.
 
 export const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/webm'
 
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 
 const prettyMB = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
+
+/**
+ * Pick a content type the bucket will actually accept.
+ *
+ * Browsers and phones are inconsistent about File.type - it can be blank, or
+ * something outside the bucket's MIME allow-list, which storage then rejects
+ * with an opaque 400. Deriving it from the extension and falling back to mp4
+ * keeps that from happening.
+ */
+function contentTypeFor(file, extension) {
+  if (VIDEO_TYPES.includes(file.type)) return file.type
+
+  switch (extension) {
+    case 'mov':
+      return 'video/quicktime'
+    case 'webm':
+      return 'video/webm'
+    default:
+      return 'video/mp4'
+  }
+}
 
 // ---------------------------------------------------------------------------
 //  Poster frames
@@ -77,27 +100,6 @@ export async function captureVideoPoster(file, { maxEdge = 1400 } = {}) {
   }
 }
 
-/** Read a video's duration without uploading it. Returns null if unreadable. */
-async function readDuration(file) {
-  const objectUrl = URL.createObjectURL(file)
-  const video = document.createElement('video')
-  try {
-    video.preload = 'metadata'
-    video.src = objectUrl
-    await new Promise((resolve, reject) => {
-      video.onloadedmetadata = resolve
-      video.onerror = reject
-      setTimeout(reject, 10000)
-    })
-    return Number.isFinite(video.duration) ? video.duration : null
-  } catch {
-    return null
-  } finally {
-    video.src = ''
-    URL.revokeObjectURL(objectUrl)
-  }
-}
-
 // ---------------------------------------------------------------------------
 //  Upload
 // ---------------------------------------------------------------------------
@@ -122,6 +124,10 @@ async function putObject(path, blob, contentType, onProgress) {
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     xhr.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_ANON_KEY)
     xhr.setRequestHeader('Content-Type', contentType)
+    // Filenames are UUIDs and never rewritten, so these objects are immutable -
+    // a one-year cache is safe and cuts repeat egress, which is the scarcest
+    // resource on the free tier. (Verified that Supabase's storage endpoint
+    // permits this header in a CORS preflight.)
     xhr.setRequestHeader('cache-control', 'max-age=31536000')
 
     xhr.upload.onprogress = (event) => {
@@ -138,10 +144,48 @@ async function putObject(path, blob, contentType, onProgress) {
 
   if (!result.ok) {
     console.error('[storage] upload failed', result.code, result.body)
-    if (result.code === 413) return { error: 'That file is larger than the storage limit allows.' }
-    if (result.code === 403)
-      return { error: 'Upload refused - this account may not have owner access yet.' }
-    return { error: 'Upload failed. Check your connection and try again.' }
+
+    // Surface what the server actually said. This is an owner-only screen, and
+    // a generic "check your connection" turned a fixable configuration problem
+    // into a guessing game - the detail belongs in front of whoever can act on it.
+    let detail = ''
+    try {
+      detail = JSON.parse(result.body)?.message || ''
+    } catch {
+      detail = typeof result.body === 'string' ? result.body.slice(0, 160) : ''
+    }
+
+    if (result.code === 413) {
+      return { error: `That file is larger than the ${prettyMB(MAX_VIDEO_BYTES)} storage limit.` }
+    }
+    if (result.code === 403 || /not authorized|permission/i.test(detail)) {
+      return {
+        error:
+          'Storage refused the upload. This account may not have owner access yet - ' +
+          'check there is a row for it in the admins table.',
+      }
+    }
+    if (result.code === 400 && /mime|content type/i.test(detail)) {
+      return {
+        error: `Storage rejected that file type${detail ? ` (${detail})` : ''}. Try an MP4.`,
+      }
+    }
+    if (result.code === 404 || /bucket not found/i.test(detail)) {
+      return {
+        error:
+          'The storage bucket does not exist. Run supabase/migration-video-upload.sql in the ' +
+          'SQL editor first.',
+      }
+    }
+    if (result.code === 0) {
+      return {
+        error:
+          'The upload could not reach Supabase - the request was blocked or the connection ' +
+          'dropped. Check the browser console for details.',
+      }
+    }
+
+    return { error: `Upload failed (HTTP ${result.code})${detail ? `: ${detail}` : ''}.` }
   }
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
@@ -164,17 +208,9 @@ export async function uploadVideo(file, { onProgress, onStage } = {}) {
   if (file.size > MAX_VIDEO_BYTES) {
     return {
       error:
-        `That video is ${prettyMB(file.size)}, over the ${prettyMB(MAX_VIDEO_BYTES)} limit. ` +
-        'Please trim it or export at a lower resolution.',
-    }
-  }
-
-  const duration = await readDuration(file)
-  if (duration && duration > MAX_VIDEO_SECONDS) {
-    return {
-      error:
-        `That clip runs ${Math.round(duration)} seconds. Please keep highlights under ` +
-        `${MAX_VIDEO_SECONDS} seconds - long videos use up the monthly bandwidth budget fast.`,
+        `That video is ${prettyMB(file.size)}, and the storage limit is ` +
+        `${prettyMB(MAX_VIDEO_BYTES)} per file. Export it at 720p or a lower bitrate and it ` +
+        'will usually fit - length is not the problem, file size is.',
     }
   }
 
@@ -198,7 +234,7 @@ export async function uploadVideo(file, { onProgress, onStage } = {}) {
   const videoResult = await putObject(
     `${id}.${extension}`,
     file,
-    file.type || 'video/mp4',
+    contentTypeFor(file, extension),
     onProgress
   )
 

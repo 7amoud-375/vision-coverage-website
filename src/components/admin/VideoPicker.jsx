@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { uploadVideo, VIDEO_ACCEPT, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS } from '../../lib/storage'
+import { uploadVideo, VIDEO_ACCEPT, MAX_VIDEO_BYTES } from '../../lib/storage'
 import Button from '../ui/Button'
 import Notice from '../ui/Notice'
 
@@ -133,8 +133,8 @@ export default function VideoPicker({ value, poster, onChange, error }) {
               </Button>
             </div>
             <p className="mx-auto mt-3 max-w-xs text-xs leading-relaxed text-subtle">
-              MP4, MOV or WebM. Up to {maxMB} MB and {MAX_VIDEO_SECONDS} seconds. A cover frame is
-              taken from it automatically.
+              MP4, MOV or WebM, up to {maxMB} MB per file. Any length - what matters is the file
+              size, so export longer clips at 720p. A cover frame is taken automatically.
             </p>
           </div>
         )}

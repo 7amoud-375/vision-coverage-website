@@ -1,4 +1,5 @@
 import { site, contact, whatsappLink } from '../../lib/config'
+import Wordmark from '../brand/Wordmark'
 
 function SocialLink({ href, label, children }) {
   if (!href) return null
@@ -28,7 +29,7 @@ export default function Footer() {
       <div className="mx-auto max-w-content px-5 py-16 sm:px-8">
         <div className="grid gap-12 md:grid-cols-3">
           <div>
-            <h2 className="font-display text-3xl font-semibold text-ink">{site.name}</h2>
+            <Wordmark />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">{site.tagline}.</p>
           </div>
 

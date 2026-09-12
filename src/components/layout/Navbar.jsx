@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { site } from '../../lib/config'
+import Wordmark from '../brand/Wordmark'
 
 // /admin is intentionally missing here - the dashboard is direct-URL only.
 const LINKS = [
@@ -49,8 +50,8 @@ export default function Navbar() {
       ].join(' ')}
     >
       <nav className="mx-auto flex h-16 max-w-content items-center justify-between px-5 sm:px-8">
-        <a href="#top" className="font-display text-xl font-semibold tracking-wide text-ink">
-          {site.name}
+        <a href="#top" aria-label={`${site.name} - home`} className="shrink-0">
+          <Wordmark compact />
         </a>
 
         <ul className="hidden items-center gap-8 md:flex">

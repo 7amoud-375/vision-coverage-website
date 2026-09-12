@@ -46,13 +46,28 @@
     @apply mx-auto w-full max-w-content px-5 py-20 sm:px-8 md:py-28;
   }
 
+  /* Uppercase and lightly tracked, the way the wordmark sets type. */
   .section-title {
-    @apply font-display text-4xl font-semibold tracking-tight text-ink md:text-5xl;
+    @apply font-display text-3xl font-semibold uppercase tracking-[0.08em] text-ink
+           sm:text-4xl md:text-5xl;
   }
 
+  /* The kicker used to be the gold accent. With the brand accent now being
+     plain white, that would make it compete with the heading right below it -
+     so hierarchy comes from weight and tracking instead of colour, which also
+     suits the wordmark's own wide-tracked treatment. */
   .section-kicker {
-    @apply mb-3 text-xs font-medium uppercase tracking-[0.25em] text-accent;
+    @apply mb-3 flex items-center gap-2.5 text-[0.7rem] font-medium uppercase
+           tracking-brand text-muted;
   }
+
+  /* A small chevron rule, echoing the logo, used to open a section heading. */
+  .section-kicker::before {
+    content: '';
+    @apply inline-block h-2 w-2 shrink-0 border-l border-b border-muted;
+    transform: rotate(-45deg) translateY(-1px);
+  }
+
 
   .card {
     @apply rounded-xl border border-line bg-surface;

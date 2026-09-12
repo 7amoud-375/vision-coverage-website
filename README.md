@@ -1,7 +1,7 @@
 # Media Coverage — Portfolio & Reservations
 
 A portfolio and live booking site for a photography/videography freelancer.
-Visitors browse work (embedded straight from Instagram), check a live
+Visitors browse his work, check a live
 availability calendar and request a date. The owner approves or rejects
 requests, blocks days off and manages the gallery from a private dashboard.
 
@@ -143,27 +143,43 @@ is already shaped for it — only the `anon ... for insert` policy would change.
 
 ## Portfolio: how the videos work
 
-No video is uploaded or stored anywhere — there are no storage costs and nothing
-to re-upload. Each portfolio item stores an Instagram post/reel URL, and the
-public gallery renders Instagram's own embed widget for it, so the video plays
-live from Instagram inside your site.
+The owner uploads video straight from his phone gallery or his laptop. There is
+no Instagram link to paste, and no third-party player in the page.
 
-- `embed.js` is loaded **once** in `index.html`.
-- Because React injects the embeds after page load, each one calls
-  `window.instgrm.Embeds.process()` on mount — the script only auto-scans the
-  DOM on the initial load.
-- Embeds are mounted lazily as they scroll into view, so a long gallery does not
-  fire twenty iframe loads on first paint.
-- URLs are canonicalised on save, so pasting a share link with `?igsh=…`
-  tracking parameters still produces a working embed. A database check
-  constraint enforces the same shape, so a malformed URL can't reach the table.
-- **If Instagram is blocked**, each tile falls back to a link after a few
-  seconds. uBlock, Brave shields and corporate DNS filtering all block
-  `instagram.com` outright, and without this the whole gallery would sit as grey
-  skeletons forever for those visitors — a portfolio site with no portfolio.
+**The gallery never streams video.** Cards show a poster image only; the video
+file is fetched when someone presses play, in a lightbox. That distinction is
+the whole design, because bandwidth is the binding constraint on a free tier —
+it is the difference between ~250 *plays* a month and ~250 *visitors*.
 
-The gallery layout is a deliberately plain responsive grid — the visual design
-of this section is being refined separately, so it is kept easy to restyle.
+- **Poster frames are automatic.** When a video is picked, the browser decodes a
+  frame about a second in (frame zero is usually black while the camera settles),
+  scales it down, and uploads it as a ~150 KB JPEG alongside the video. Nothing
+  to fill in by hand. If the browser cannot decode the format, the upload still
+  succeeds and the card falls back to the brand chevron.
+- **Uploads show real progress**, via `XMLHttpRequest` rather than supabase-js —
+  the JS client exposes no progress events, and a 40 MB upload over mobile data
+  with no progress bar is indistinguishable from a hung app.
+- **Per-file size is the plan's, not ours.** The bucket sets no limit of its own,
+  so it inherits the project ceiling (50 MB on the free plan; raising the plan
+  lifts it with no code change). Length is not limited at all — it was a bad
+  proxy for size.
+- **Total storage is capped at 800 MB** in the dashboard, with a warning from
+  80%. Postgres has no per-bucket quota, so that check lives where the upload
+  happens.
+- **Storage is owner-only.** The bucket's write policies check membership of
+  `public.admins`, exactly like every table. Visitors read; only the owner writes.
+- **Replacing or deleting a piece cleans up its files**, so the bucket does not
+  fill with orphans. The old files are removed only once the new ones are safely
+  stored.
+
+Instagram remains supported as an *optional* extra field, for pointing viewers at
+an original post, and older Instagram-only items still render via the embed. If
+Instagram is blocked (uBlock, Brave shields, corporate DNS), those fall back to a
+plain link rather than sitting as a grey skeleton forever.
+
+**If the site gets busy, video should move off Supabase Storage** — it is a file
+bucket, not a video platform. Cloudflare Stream or R2, Bunny, or an unlisted
+YouTube/Vimeo embed are all built for this. Watch **Reports → Egress**.
 
 ---
 
@@ -278,7 +294,18 @@ Nearly everything client-specific is in two files:
 - **`src/lib/config.js`** — business name, tagline, intro, WhatsApp number,
   contact details, social links, About text, equipment highlights, hero
   image/video, portfolio categories, event types.
-- **`tailwind.config.js`** — colours and fonts. Components use semantic names
+- **`src/components/brand/`** — the chevron mark and the stacked wordmark. The
+  mark is a geometric interpretation of the logo, used as the site's decorative
+  motif: the navbar lockup, a large watermark bleeding off the hero, the rule
+  that opens each section heading, and the fallback tile for work with no poster
+  yet. To use the real artwork instead, drop the file in `/public` and point
+  `brand.logo` at it in `src/lib/config.js` — the navbar and footer switch to it
+  with no code change.
+- **`tailwind.config.js`** — colours and fonts. Tuned to the identity: true
+  black, pure white, Montserrat. The brand "accent" is simply white, so primary
+  buttons are white on black rather than a colour laid over the brand. The only
+  hues left are functional (booked days, status badges), where brightness alone
+  would fail both contrast and colour-blind readers. Components use semantic names
   (`bg-surface`, `text-muted`, `bg-accent`) rather than raw Tailwind colours, so
   a rebrand is a one-file edit.
 

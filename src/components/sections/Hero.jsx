@@ -1,5 +1,6 @@
 import { site, heroMedia } from '../../lib/config'
 import Button from '../ui/Button'
+import Mark from '../brand/Mark'
 
 /**
  * Full-bleed hero. Uses a video if one is configured, then an image, then a
@@ -46,6 +47,17 @@ export default function Hero() {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-base via-base/60 to-base/30" />
+
+        {/*
+          The chevron as a watermark. Large, barely-there, and bleeding off the
+          right edge so it reads as a graphic device rather than a floating
+          logo. Hidden on small screens, where it would only crowd the headline.
+        */}
+        <Mark
+          className="absolute -right-16 top-1/2 hidden h-[42rem] w-[42rem] -translate-y-1/2
+                     text-ink/[0.04] lg:block"
+          strokeWidth={3}
+        />
       </div>
 
       <div className="mx-auto w-full max-w-content px-5 pb-20 pt-28 sm:px-8">

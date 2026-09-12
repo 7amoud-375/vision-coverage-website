@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Mark from '../brand/Mark'
 
 /**
  * One piece of work as a dark, on-brand tile.
@@ -35,19 +36,10 @@ export default function PortfolioCard({ item, onOpen }) {
                        group-hover:scale-[1.04]"
           />
         ) : (
-          // No poster set: a quiet typographic tile rather than a broken image.
+          // No poster set: the brand chevron rather than a broken image or a
+          // generic camera glyph, so an empty tile still looks like the brand.
           <div className="flex h-full w-full items-center justify-center">
-            <svg
-              viewBox="0 0 24 24"
-              className="h-10 w-10 text-faint"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              aria-hidden="true"
-            >
-              <path d="M3 8.5A2.5 2.5 0 015.5 6h1.7l1.2-2h6.2l1.2 2h1.7A2.5 2.5 0 0120 8.5v8A2.5 2.5 0 0117.5 19h-11A2.5 2.5 0 014 16.5v-8z" />
-              <circle cx="12" cy="12.5" r="3.5" />
-            </svg>
+            <Mark className="h-20 w-20 text-ink/10" strokeWidth={5} />
           </div>
         )}
 

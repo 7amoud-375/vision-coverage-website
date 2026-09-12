@@ -5,12 +5,28 @@
 // ---------------------------------------------------------------------------
 const env = import.meta.env
 
+// ---------------------------------------------------------------------------
+// Brand. The wordmark is split the way the logo stacks it - VISION over
+// MEDIA COVER over ZEKRA - so the navbar and footer can render it with the same
+// hierarchy rather than as one flat string.
+// ---------------------------------------------------------------------------
 export const site = {
-  name: 'Lens & Frame',
+  name: 'Vision Zekra',            // plain form, for titles and sentences
+  wordmarkTop: 'VISION',
+  wordmarkRule: 'MEDIA COVER',
+  wordmarkBottom: 'ZEKRA',
   tagline: 'Media coverage for the moments that matter',
   intro:
     'Weddings, corporate productions and live events - captured with a cinematic eye and delivered fast. Based locally, available anywhere.',
-  ownerName: 'Your Name',
+  ownerName: 'Vision Zekra',
+}
+
+// The real logo file, if you drop one in /public. The site falls back to the
+// built-in geometric mark (src/components/brand/Mark.jsx) when this is empty,
+// so nothing renders broken either way. An SVG is worth exporting if you have
+// one - it stays sharp at every size, where the square PNG will not.
+export const brand = {
+  logo: '',                        // e.g. '/logo.svg' or '/logo.png'
 }
 
 // ---------------------------------------------------------------------------
