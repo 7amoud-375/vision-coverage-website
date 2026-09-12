@@ -1,5 +1,6 @@
 import { site, contact, whatsappLink } from '../../lib/config'
 import Wordmark from '../brand/Wordmark'
+import Watermark from '../brand/Watermark'
 
 function SocialLink({ href, label, children }) {
   if (!href) return null
@@ -25,7 +26,8 @@ export default function Footer() {
   const hasSocial = contact.instagram || contact.facebook
 
   return (
-    <footer id="contact" className="border-t border-line bg-surface/40">
+    <footer id="contact" className="relative overflow-hidden border-t border-line bg-surface/40">
+      <Watermark position="bottom-right" size="xl" opacity="text-ink/[0.025]" from="sm" />
       <div className="mx-auto max-w-content px-5 py-16 sm:px-8">
         <div className="grid gap-12 md:grid-cols-3">
           <div>

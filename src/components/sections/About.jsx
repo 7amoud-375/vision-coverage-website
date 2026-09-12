@@ -1,8 +1,10 @@
 import { about, site } from '../../lib/config'
+import Watermark from '../brand/Watermark'
 
 export default function About() {
   return (
-    <section id="about" className="border-t border-line bg-surface/30">
+    <section id="about" className="relative overflow-hidden border-t border-line bg-surface/30">
+      <Watermark position="top-right" size="xl" rotate={12} from="lg" />
       <div className="section grid gap-12 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:items-start md:gap-16">
         {/* --- portrait --- */}
         <div className="mx-auto w-full max-w-sm md:mx-0">

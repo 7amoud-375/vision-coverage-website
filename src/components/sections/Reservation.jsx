@@ -10,6 +10,7 @@ import Modal from '../ui/Modal'
 import Notice from '../ui/Notice'
 import Spinner from '../ui/Spinner'
 import Button from '../ui/Button'
+import Watermark from '../brand/Watermark'
 
 export default function Reservation() {
   const { unavailable, loading, error } = useAvailability()
@@ -31,7 +32,8 @@ export default function Reservation() {
   }
 
   return (
-    <section id="reservation" className="border-t border-line bg-surface/30">
+    <section id="reservation" className="relative overflow-hidden border-t border-line bg-surface/30">
+      <Watermark position="center-right" size="lg" rotate={6} from="lg" />
       <div className="section">
         <div className="mb-10 max-w-2xl">
           <p className="section-kicker">Reservations</p>

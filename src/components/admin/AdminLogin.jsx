@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient'
-import { site } from '../../lib/config'
 import Button from '../ui/Button'
 import Field from '../ui/Field'
 import Notice from '../ui/Notice'
+import Wordmark from '../brand/Wordmark'
+import Watermark from '../brand/Watermark'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
@@ -30,11 +31,12 @@ export default function AdminLogin() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-5 py-16">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="font-display text-3xl font-semibold text-ink">{site.name}</h1>
-          <p className="mt-1.5 text-sm text-muted">Owner dashboard</p>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-16">
+      <Watermark position="center" size="xl" opacity="text-ink/[0.03]" from="sm" />
+      <div className="relative w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <Wordmark />
+          <p className="mt-4 text-xs uppercase tracking-brand text-muted">Owner dashboard</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card space-y-4 p-6">

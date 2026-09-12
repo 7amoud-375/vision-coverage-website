@@ -9,6 +9,7 @@ import VideoPlayer from '../portfolio/VideoPlayer'
 import Modal from '../ui/Modal'
 import Notice from '../ui/Notice'
 import Spinner from '../ui/Spinner'
+import Watermark from '../brand/Watermark'
 
 export default function Portfolio() {
   const { items, loading, error } = usePortfolio()
@@ -29,7 +30,8 @@ export default function Portfolio() {
   )
 
   return (
-    <section id="portfolio" className="border-t border-line">
+    <section id="portfolio" className="relative overflow-hidden border-t border-line">
+      <Watermark position="bottom-left" size="lg" rotate={-6} />
       <div className="section">
         <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
