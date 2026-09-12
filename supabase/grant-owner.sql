@@ -1,35 +1,61 @@
 -- ===========================================================================
---  Make one account the owner of the /admin dashboard.
+--  Give an account access to the /admin dashboard.
 --
---  Run this in the Supabase SQL Editor AFTER creating the login account under
---  Authentication -> Users. Signing in is not the same as being allowed in:
---  Supabase lets anyone register with the public anon key, so every owner
---  policy checks membership of public.admins instead of merely being
---  authenticated. Until a row exists here, /admin signs you in and then
---  correctly says the account has no owner access.
+--  Signing in is not the same as being allowed in. Supabase lets anyone
+--  register with the public anon key - and that key ships inside the
+--  JavaScript bundle - so every owner policy checks membership of
+--  public.admins rather than merely being authenticated. Until a row exists
+--  here, /admin signs the account in and then correctly says it has no owner
+--  access.
 --
---  Safe to re-run. Change the email below if you use a different one.
+--  public.admins has NO row level security policies on purpose, which makes it
+--  unreachable from the browser entirely. That is why this has to be run here,
+--  in the SQL editor, and cannot be done from the dashboard UI.
+--
+--  BEFORE RUNNING: create the login first, under
+--  Authentication -> Users -> Add user -> Create new user.
+--  Enter the email and password and tick "Auto Confirm User" - with that ticked
+--  no email is sent, so the address does not need to be a real inbox.
+--
+--  Then set the email below and run ONE of the two sections.
 -- ===========================================================================
 
--- 1. Grant ownership to the dashboard account.
+-- ---------------------------------------------------------------------------
+--  Set this to the account you just created.
+-- ---------------------------------------------------------------------------
+-- Used by both sections below. Change it in this one place.
+create temp table _target as
+select 'new-admin@example.com'::text as email;   -- <<< CHANGE THIS
+
+-- ===========================================================================
+--  SECTION A - Add this account as an owner, leaving existing owners alone.
+--  Use this when more than one person should be able to open the dashboard.
+-- ===========================================================================
 insert into public.admins (user_id)
-select id from auth.users
-where email = 'hemahamoud375@gmail.com'
+select u.id
+from auth.users u, _target t
+where u.email = t.email
 on conflict (user_id) do nothing;
 
--- 2. Revoke everyone else, so there is never a second owner lying around -
---    for example an invited account whose password was never set.
-delete from public.admins
-where user_id not in (
-  select id from auth.users where email = 'hemahamoud375@gmail.com'
-);
+-- ===========================================================================
+--  SECTION B - Make this account the ONLY owner, revoking everyone else.
+--  Use this when replacing the admin rather than adding one.
+--  Run section A first (it does the insert), then uncomment the delete below.
+-- ===========================================================================
+-- delete from public.admins
+-- where user_id not in (select u.id from auth.users u, _target t where u.email = t.email);
 
--- 3. Confirm. Exactly one row should read is_owner = true.
+-- ===========================================================================
+--  Confirm. The account you named should read is_owner = true and
+--  has_password = true. If has_password is false, the login was created by
+--  invitation and never had a password set - fix that under
+--  Authentication -> Users before trying to sign in.
+-- ===========================================================================
 select
   u.email,
-  (a.user_id is not null) as is_owner,
-  (u.email_confirmed_at is not null) as confirmed,
-  (u.encrypted_password is not null and u.encrypted_password <> '') as has_password
+  (a.user_id is not null)                                            as is_owner,
+  (u.email_confirmed_at is not null)                                 as confirmed,
+  (u.encrypted_password is not null and u.encrypted_password <> '')   as has_password
 from auth.users u
 left join public.admins a on a.user_id = u.id
-order by u.email;
+order by is_owner desc, u.email;
