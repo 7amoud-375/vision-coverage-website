@@ -51,62 +51,68 @@ export default function BookingForm({ dateKey, onSuccess, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
-      <div className="rounded-lg border border-accent/30 bg-accent/10 px-4 py-3">
-        <p className="text-xs uppercase tracking-[0.18em] text-accent">Requested date</p>
-        <p className="mt-0.5 font-display text-lg font-semibold text-ink">
+      {/* One compact line rather than a stacked banner - it is confirmation,
+          not the subject of the form. */}
+      <div className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-line bg-surface-2 px-3.5 py-2.5">
+        <span className="text-[0.65rem] uppercase tracking-brand text-muted">Date</span>
+        <span className="font-display text-sm font-semibold text-ink">
           {formatKeyLong(dateKey)}
-        </p>
+        </span>
       </div>
 
-      <Field
-        label="Full name"
-        required
-        autoComplete="name"
-        value={values.clientName}
-        onChange={update('clientName')}
-        error={errors.clientName}
-        placeholder="Jane Doe"
-      />
+      {/* Paired on wider screens so the dialog stays short instead of becoming
+          a full-height column of single fields. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label="Full name"
+          required
+          autoComplete="name"
+          value={values.clientName}
+          onChange={update('clientName')}
+          error={errors.clientName}
+          placeholder="Jane Doe"
+        />
 
-      <Field
-        label="Phone number"
-        required
-        type="tel"
-        inputMode="tel"
-        autoComplete="tel"
-        value={values.phone}
-        onChange={update('phone')}
-        error={errors.phone}
-        placeholder="+20 123 456 7890"
-      />
+        <Field
+          label="Phone number"
+          required
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          value={values.phone}
+          onChange={update('phone')}
+          error={errors.phone}
+          placeholder="+20 123 456 7890"
+        />
 
-      <Field
-        as="select"
-        label="Event type"
-        required
-        value={values.eventType}
-        onChange={update('eventType')}
-      >
-        {EVENT_TYPES.map((type) => (
-          <option key={type} value={type}>
-            {type}
-          </option>
-        ))}
-      </Field>
+        <Field
+          as="select"
+          label="Event type"
+          required
+          value={values.eventType}
+          onChange={update('eventType')}
+        >
+          {EVENT_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </Field>
 
-      <Field
-        label="Location"
-        required
-        value={values.location}
-        onChange={update('location')}
-        error={errors.location}
-        placeholder="Venue or city"
-      />
+        <Field
+          label="Location"
+          required
+          value={values.location}
+          onChange={update('location')}
+          error={errors.location}
+          placeholder="Venue or city"
+        />
+      </div>
 
       <Field
         as="textarea"
         label="Notes"
-        rows={3}
+        rows={2}
         value={values.notes}
         onChange={update('notes')}
         placeholder="Timings, guest count, anything else worth knowing."
@@ -124,7 +130,7 @@ export default function BookingForm({ dateKey, onSuccess, onCancel }) {
       </div>
 
       <p className="text-xs leading-relaxed text-subtle">
-        Sending a request does not charge you anything. The date is held while we confirm by phone.
+        Free to send - the date is held while we confirm by phone.
       </p>
     </form>
   )

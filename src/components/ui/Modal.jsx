@@ -96,7 +96,10 @@ export default function Modal({ open, onClose, title, size = 'md', children }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto
+      // No overflow-y-auto here on purpose. Scrolling the backdrop is what made
+      // tall dialogs stretch to the full height of the screen and take the whole
+      // page with them; the panel caps its own height and scrolls internally.
+      className="fixed inset-0 z-50 flex items-end justify-center
                  bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
@@ -108,23 +111,37 @@ export default function Modal({ open, onClose, title, size = 'md', children }) {
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`w-full ${SIZES[size]} animate-fade-up rounded-t-2xl border border-line
-                   bg-surface shadow-2xl outline-none sm:rounded-2xl`}
+        // dvh rather than vh: on mobile browsers vh includes the address bar,
+        // so a 90vh panel still overflowed the visible area.
+        className={`flex w-full ${SIZES[size]} max-h-[92dvh] flex-col animate-fade-up
+                   rounded-t-2xl border border-line bg-surface shadow-2xl outline-none
+                   sm:max-h-[86dvh] sm:rounded-2xl`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
-          <h3 className="font-display text-2xl font-semibold text-ink">{title}</h3>
+        <header
+          className="flex shrink-0 items-center justify-between gap-4 border-b border-line
+                     px-5 py-3.5 sm:px-6"
+        >
+          <h3 className="font-display text-base font-semibold uppercase tracking-[0.12em] text-ink">
+            {title}
+          </h3>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-1 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+            className="-mr-1 shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7">
               <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
             </svg>
           </button>
         </header>
-        <div className="px-6 py-5">{children}</div>
+
+        {/* min-h-0 is what lets this shrink inside the flex column; without it
+            the body refuses to scroll and pushes the panel open again.
+            overscroll-contain stops the scroll chaining to the page behind. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6 sm:py-5">
+          {children}
+        </div>
       </div>
     </div>,
     document.body

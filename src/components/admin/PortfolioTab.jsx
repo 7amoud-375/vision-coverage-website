@@ -8,6 +8,7 @@ import Modal from '../ui/Modal'
 import Notice from '../ui/Notice'
 import Spinner from '../ui/Spinner'
 import PortfolioForm from './PortfolioForm'
+import Mark from '../brand/Mark'
 
 export default function PortfolioTab() {
   const { items, loading, error, refresh } = usePortfolio()
@@ -91,62 +92,77 @@ export default function PortfolioTab() {
       ) : items.length === 0 ? (
         <Notice>Nothing published yet. Use &ldquo;Add work&rdquo; to add your first reel.</Notice>
       ) : (
-        // A plain list rather than a grid of players: the dashboard is for
-        // managing entries, and mounting an Instagram iframe per row made it
-        // slow to load for no benefit.
-        <ul className="space-y-3">
+        // Cards rather than rows: each entry is mostly a picture, so showing the
+        // poster properly makes the list scannable. Still no players mounted -
+        // the dashboard is for managing entries, and an iframe or a <video> per
+        // card would make it slow to load for no benefit.
+        <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
-            <li key={item.id} className="card flex flex-wrap items-center gap-4 p-4 sm:flex-nowrap">
-              <div className="flex h-20 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-2">
+            <li key={item.id} className="card flex flex-col overflow-hidden">
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-2">
                 {item.thumbnail_url ? (
                   <img
                     src={item.thumbnail_url}
                     alt=""
                     loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="px-1 text-center text-[0.6rem] uppercase tracking-wider text-faint">
-                    No cover
-                  </span>
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Mark className="h-14 w-14 text-ink/10" strokeWidth={5} />
+                  </div>
                 )}
+
+                <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-2 py-0.5 text-[0.6rem] uppercase tracking-wider text-ink backdrop-blur-sm">
+                  {item.category}
+                </span>
+
+                {/* Which kind of media this entry actually holds - useful when a
+                    gallery mixes uploads with older Instagram-only items. */}
+                <span className="absolute right-3 top-3 rounded-full border border-white/20 bg-black/55 px-2 py-0.5 text-[0.6rem] uppercase tracking-wider text-muted backdrop-blur-sm">
+                  {item.video_url ? 'Video' : 'Instagram'}
+                </span>
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-display text-lg font-semibold leading-snug text-ink">
-                    {item.title}
-                  </h3>
-                  <span className="rounded-full border border-line px-2 py-0.5 text-[0.65rem] uppercase tracking-wider text-muted">
-                    {item.category}
-                  </span>
-                </div>
+              <div className="flex flex-1 flex-col p-4">
+                <h3 className="font-display text-base font-semibold leading-snug text-ink">
+                  {item.title}
+                </h3>
+
                 {item.description && (
                   <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted">
                     {item.description}
                   </p>
                 )}
-                <p className="mt-1 text-xs text-subtle">
-                  Added {formatShort(new Date(item.created_at))}
-                  {' · '}
-                  <a
-                    href={item.instagram_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="transition-colors hover:text-accent"
-                  >
-                    View on Instagram
-                  </a>
-                </p>
-              </div>
 
-              <div className="flex shrink-0 gap-2">
-                <Button size="sm" variant="outline" onClick={() => setEditing(item)}>
-                  Edit
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(item)}>
-                  Delete
-                </Button>
+                <div className="mt-4 flex flex-1 items-end justify-between gap-3 border-t border-line pt-3">
+                  <div className="min-w-0 text-xs text-subtle">
+                    <p>Added {formatShort(new Date(item.created_at))}</p>
+                    {/* Only rendered when there is something to link to -
+                        instagram_url is optional now that videos are uploaded,
+                        so this used to be a dead link on every upload. */}
+                    {(item.video_url || item.instagram_url) && (
+                      <a
+                        href={item.video_url || item.instagram_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="transition-colors hover:text-accent"
+                      >
+                        {item.video_url ? 'Open video' : 'View on Instagram'}
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setEditing(item)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(item)}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
               </div>
             </li>
           ))}

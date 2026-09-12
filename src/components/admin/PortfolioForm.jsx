@@ -98,27 +98,37 @@ export default function PortfolioForm({ item, onSubmit, onCancel }) {
         }}
       />
 
-      <Field
-        label="Title"
-        required
-        value={values.title}
-        onChange={update('title')}
-        error={errors.title}
-        placeholder="Golden Hour Vows"
-      />
+      {/* Paired so the dialog does not become a full-height column, which is
+          what made it fill the screen alongside the video picker. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label="Title"
+          required
+          value={values.title}
+          onChange={update('title')}
+          error={errors.title}
+          placeholder="Golden Hour Vows"
+        />
 
-      <Field as="select" label="Category" required value={values.category} onChange={update('category')}>
-        {CATEGORIES.map((category) => (
-          <option key={category} value={category}>
-            {category}
-          </option>
-        ))}
-      </Field>
+        <Field
+          as="select"
+          label="Category"
+          required
+          value={values.category}
+          onChange={update('category')}
+        >
+          {CATEGORIES.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </Field>
+      </div>
 
       <Field
         as="textarea"
         label="Description"
-        rows={3}
+        rows={2}
         value={values.description}
         onChange={update('description')}
         placeholder="One or two lines about the shoot."
