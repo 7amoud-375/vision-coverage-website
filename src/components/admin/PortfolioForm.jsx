@@ -4,13 +4,24 @@ import { normalizeInstagramUrl } from '../../lib/instagram'
 import Button from '../ui/Button'
 import Field from '../ui/Field'
 import Notice from '../ui/Notice'
+import VideoPicker from './VideoPicker'
 
-const blank = { title: '', category: CATEGORIES[0], description: '', instagram_url: '' }
+const blank = {
+  title: '',
+  category: CATEGORIES[0],
+  description: '',
+  video_url: '',
+  thumbnail_url: '',
+  instagram_url: '',
+}
 
 /**
  * Add / edit form for a portfolio item. Pass `item` to edit, omit it to create.
- * The Instagram URL is canonicalised before saving so share links with tracking
- * parameters still produce a working embed.
+ *
+ * The video is uploaded from the owner's own files, so there is no Instagram
+ * link to paste. The Instagram field stays as an optional extra - useful for
+ * sending viewers to the original post - and existing Instagram-only items
+ * keep working.
  */
 export default function PortfolioForm({ item, onSubmit, onCancel }) {
   const [values, setValues] = useState(() =>
@@ -19,7 +30,9 @@ export default function PortfolioForm({ item, onSubmit, onCancel }) {
           title: item.title,
           category: item.category,
           description: item.description ?? '',
-          instagram_url: item.instagram_url,
+          video_url: item.video_url ?? '',
+          thumbnail_url: item.thumbnail_url ?? '',
+          instagram_url: item.instagram_url ?? '',
         }
       : blank
   )
@@ -39,10 +52,18 @@ export default function PortfolioForm({ item, onSubmit, onCancel }) {
     const found = {}
     if (!values.title.trim()) found.title = 'A title is required.'
 
-    const permalink = normalizeInstagramUrl(values.instagram_url)
-    if (!values.instagram_url.trim()) found.instagram_url = 'Paste the Instagram link.'
-    else if (!permalink)
+    // An Instagram link is optional now, but if one is given it has to be real.
+    const pastedInstagram = values.instagram_url.trim()
+    const permalink = pastedInstagram ? normalizeInstagramUrl(pastedInstagram) : null
+    if (pastedInstagram && !permalink) {
       found.instagram_url = 'That is not an Instagram post or reel link.'
+    }
+
+    // The database enforces the same rule; catching it here gives a readable
+    // message rather than a constraint violation.
+    if (!values.video_url && !permalink) {
+      found.video_url = 'Upload a video, or paste an Instagram link below.'
+    }
 
     setErrors(found)
     if (Object.keys(found).length > 0) return
@@ -53,6 +74,8 @@ export default function PortfolioForm({ item, onSubmit, onCancel }) {
       title: values.title.trim(),
       category: values.category,
       description: values.description.trim() || null,
+      video_url: values.video_url || null,
+      thumbnail_url: values.thumbnail_url || null,
       instagram_url: permalink,
     })
     setBusy(false)
@@ -61,14 +84,18 @@ export default function PortfolioForm({ item, onSubmit, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
-      <Field
-        label="Instagram post or reel URL"
-        required
-        value={values.instagram_url}
-        onChange={update('instagram_url')}
-        error={errors.instagram_url}
-        placeholder="https://www.instagram.com/reel/ABC123/"
-        hint="Share links with tracking parameters are fine - they get cleaned up automatically."
+      <VideoPicker
+        value={values.video_url}
+        poster={values.thumbnail_url}
+        error={errors.video_url}
+        onChange={({ videoUrl, posterUrl }) => {
+          setValues((prev) => ({
+            ...prev,
+            video_url: videoUrl,
+            thumbnail_url: posterUrl || '',
+          }))
+          setErrors((prev) => ({ ...prev, video_url: undefined }))
+        }}
       />
 
       <Field
@@ -95,6 +122,15 @@ export default function PortfolioForm({ item, onSubmit, onCancel }) {
         value={values.description}
         onChange={update('description')}
         placeholder="One or two lines about the shoot."
+      />
+
+      <Field
+        label="Instagram link"
+        value={values.instagram_url}
+        onChange={update('instagram_url')}
+        error={errors.instagram_url}
+        placeholder="https://www.instagram.com/reel/ABC123/"
+        hint="Only if you also want to point viewers at the original post."
       />
 
       <Notice tone="error">{submitError}</Notice>

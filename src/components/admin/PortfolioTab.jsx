@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { usePortfolio } from '../../hooks/usePortfolio'
+import { deleteStoredFile } from '../../lib/storage'
 import { formatShort } from '../../lib/dates'
-import InstagramEmbed from '../portfolio/InstagramEmbed'
-import LazyMount from '../portfolio/LazyMount'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import Notice from '../ui/Notice'
@@ -18,13 +17,29 @@ export default function PortfolioTab() {
   const [busy, setBusy] = useState(false)
 
   const handleSubmit = async (payload) => {
-    const query =
-      editing === 'new'
-        ? supabase.from('portfolio_items').insert(payload)
-        : supabase.from('portfolio_items').update(payload).eq('id', editing.id)
+    const isNew = editing === 'new'
+    const previous = isNew
+      ? null
+      : { video: editing.video_url, poster: editing.thumbnail_url }
+
+    const query = isNew
+      ? supabase.from('portfolio_items').insert(payload)
+      : supabase.from('portfolio_items').update(payload).eq('id', editing.id)
 
     const { error: err } = await query
     if (err) return { error: err.message }
+
+    // Only now that the row definitely points at the new files is it safe to
+    // bin the old ones. Doing this inside the picker would strand the item on a
+    // deleted file if the owner replaced a video and then cancelled.
+    if (previous) {
+      if (previous.video && previous.video !== payload.video_url) {
+        deleteStoredFile(previous.video)
+      }
+      if (previous.poster && previous.poster !== payload.thumbnail_url) {
+        deleteStoredFile(previous.poster)
+      }
+    }
 
     // Realtime normally delivers the change, but refreshing keeps the dashboard
     // correct even if the socket dropped.
@@ -46,6 +61,11 @@ export default function PortfolioTab() {
       setActionError(err.message)
       return
     }
+
+    // Bin the stored poster too, so the bucket does not fill with orphans.
+    if (confirmDelete.thumbnail_url) deleteStoredFile(confirmDelete.thumbnail_url)
+    if (confirmDelete.video_url) deleteStoredFile(confirmDelete.video_url)
+
     setConfirmDelete(null)
     await refresh()
   }
@@ -69,49 +89,64 @@ export default function PortfolioTab() {
       ) : loading ? (
         <Spinner label="Loading work" />
       ) : items.length === 0 ? (
-        <Notice>Nothing published yet. Use &ldquo;Add work&rdquo; to paste your first reel.</Notice>
+        <Notice>Nothing published yet. Use &ldquo;Add work&rdquo; to add your first reel.</Notice>
       ) : (
-        <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        // A plain list rather than a grid of players: the dashboard is for
+        // managing entries, and mounting an Instagram iframe per row made it
+        // slow to load for no benefit.
+        <ul className="space-y-3">
           {items.map((item) => (
-            <li key={item.id} className="card flex flex-col overflow-hidden">
-              <LazyMount className="border-b border-line p-3">
-                <InstagramEmbed url={item.instagram_url} />
-              </LazyMount>
+            <li key={item.id} className="card flex flex-wrap items-center gap-4 p-4 sm:flex-nowrap">
+              <div className="flex h-20 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-2">
+                {item.thumbnail_url ? (
+                  <img
+                    src={item.thumbnail_url}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="px-1 text-center text-[0.6rem] uppercase tracking-wider text-faint">
+                    No cover
+                  </span>
+                )}
+              </div>
 
-              <div className="flex flex-1 flex-col p-4">
-                <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-display text-lg font-semibold leading-snug text-ink">
                     {item.title}
                   </h3>
-                  <span className="mt-0.5 shrink-0 rounded-full border border-line px-2 py-0.5 text-[0.7rem] uppercase tracking-wider text-muted">
+                  <span className="rounded-full border border-line px-2 py-0.5 text-[0.65rem] uppercase tracking-wider text-muted">
                     {item.category}
                   </span>
                 </div>
-
                 {item.description && (
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{item.description}</p>
+                  <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted">
+                    {item.description}
+                  </p>
                 )}
-
-                <p className="mt-2 text-xs text-subtle">
+                <p className="mt-1 text-xs text-subtle">
                   Added {formatShort(new Date(item.created_at))}
-                </p>
-
-                <div className="mt-4 flex gap-2 border-t border-line pt-3">
-                  <Button size="sm" variant="outline" onClick={() => setEditing(item)}>
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(item)}>
-                    Delete
-                  </Button>
+                  {' · '}
                   <a
                     href={item.instagram_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-auto self-center text-xs text-muted transition-colors hover:text-accent"
+                    className="transition-colors hover:text-accent"
                   >
-                    Open on Instagram
+                    View on Instagram
                   </a>
-                </div>
+                </p>
+              </div>
+
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEditing(item)}>
+                  Edit
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(item)}>
+                  Delete
+                </Button>
               </div>
             </li>
           ))}
@@ -141,7 +176,7 @@ export default function PortfolioTab() {
           <div className="space-y-5">
             <p className="leading-relaxed text-muted">
               <strong className="text-ink">{confirmDelete.title}</strong> will be removed from the
-              public portfolio. The post itself stays on Instagram.
+              public portfolio, along with its cover image. The post itself stays on Instagram.
             </p>
             <Notice tone="error">{actionError}</Notice>
             <div className="flex justify-end gap-3">

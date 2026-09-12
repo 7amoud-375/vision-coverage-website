@@ -14,14 +14,14 @@
 -- 1. Grant ownership to the dashboard account.
 insert into public.admins (user_id)
 select id from auth.users
-where email = 'admin@dashboard.com'
+where email = 'hemahamoud375@gmail.com'
 on conflict (user_id) do nothing;
 
 -- 2. Revoke everyone else, so there is never a second owner lying around -
 --    for example an invited account whose password was never set.
 delete from public.admins
 where user_id not in (
-  select id from auth.users where email = 'admin@dashboard.com'
+  select id from auth.users where email = 'hemahamoud375@gmail.com'
 );
 
 -- 3. Confirm. Exactly one row should read is_owner = true.

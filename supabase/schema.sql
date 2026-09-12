@@ -128,8 +128,16 @@ create table if not exists public.portfolio_items (
                 check (category in ('Wedding', 'Corporate', 'Event')),
   description   text,
   instagram_url text not null,
+  -- Optional poster image shown on the dark gallery card. Instagram's embed is
+  -- a cross-origin iframe whose white chrome cannot be restyled, so the grid
+  -- shows this instead and only loads the player on click. Items without one
+  -- fall back to a typographic tile.
+  thumbnail_url text,
   created_at    timestamptz not null default now()
 );
+
+-- For databases created before thumbnail_url existed.
+alter table public.portfolio_items add column if not exists thumbnail_url text;
 
 do $migrate$
 begin
@@ -137,7 +145,9 @@ begin
     add constraint portfolio_title_len check (char_length(title) between 1 and 140),
     add constraint portfolio_desc_len  check (description is null or char_length(description) <= 1000),
     add constraint portfolio_url_len   check (char_length(instagram_url) <= 300),
-    add constraint portfolio_url_shape  check (instagram_url ~ '^https://www\.instagram\.com/(p|reel|tv)/[A-Za-z0-9_-]+/$');
+    add constraint portfolio_url_shape  check (instagram_url ~ '^https://www\.instagram\.com/(p|reel|tv)/[A-Za-z0-9_-]+/$'),
+    add constraint portfolio_thumb_len  check (thumbnail_url is null or char_length(thumbnail_url) <= 500),
+    add constraint portfolio_thumb_shape check (thumbnail_url is null or thumbnail_url ~ '^https?://');
 exception when duplicate_object then null;
 end
 $migrate$;
