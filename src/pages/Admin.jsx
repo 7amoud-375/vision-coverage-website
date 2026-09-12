@@ -6,6 +6,7 @@ import { site } from '../lib/config'
 import AdminLogin from '../components/admin/AdminLogin'
 import ReservationsTab from '../components/admin/ReservationsTab'
 import PortfolioTab from '../components/admin/PortfolioTab'
+import AccountTab from '../components/admin/AccountTab'
 import Button from '../components/ui/Button'
 import Notice from '../components/ui/Notice'
 import Spinner from '../components/ui/Spinner'
@@ -13,6 +14,7 @@ import Spinner from '../components/ui/Spinner'
 const TABS = [
   { id: 'reservations', label: 'Reservations' },
   { id: 'portfolio', label: 'Work' },
+  { id: 'account', label: 'Account' },
 ]
 
 /**
@@ -57,8 +59,8 @@ export default function Admin() {
           not been granted owner access, so there is nothing here for it.
         </p>
         <p className="mt-3 text-sm text-subtle">
-          If this should be the owner account, run the grant statement at the bottom of{' '}
-          <code>supabase/schema.sql</code>, then sign in again.
+          If this should be an owner account, run <code>supabase/grant-owner.sql</code> in the
+          Supabase SQL editor with this address, then reload.
         </p>
         <div className="mt-6">
           <Button variant="outline" onClick={() => supabase.auth.signOut()}>
@@ -112,7 +114,9 @@ export default function Admin() {
       </header>
 
       <main className="mx-auto max-w-content px-5 py-8 sm:px-8">
-        {tab === 'reservations' ? <ReservationsTab /> : <PortfolioTab />}
+        {tab === 'reservations' && <ReservationsTab />}
+        {tab === 'portfolio' && <PortfolioTab />}
+        {tab === 'account' && <AccountTab user={user} />}
       </main>
     </div>
   )
