@@ -8,6 +8,7 @@ import Modal from '../ui/Modal'
 import Notice from '../ui/Notice'
 import Spinner from '../ui/Spinner'
 import PortfolioForm from './PortfolioForm'
+import StorageMeter from './StorageMeter'
 import Mark from '../brand/Mark'
 
 export default function PortfolioTab() {
@@ -16,6 +17,9 @@ export default function PortfolioTab() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [busy, setBusy] = useState(false)
+  // Bumped after anything that adds or removes stored files, so the meter
+  // re-reads the bucket rather than showing a figure from before the change.
+  const [storageKey, setStorageKey] = useState(0)
 
   const handleSubmit = async (payload) => {
     const isNew = editing === 'new'
@@ -45,6 +49,7 @@ export default function PortfolioTab() {
     // Realtime normally delivers the change, but refreshing keeps the dashboard
     // correct even if the socket dropped.
     await refresh()
+    setStorageKey((n) => n + 1)
     setEditing(null)
     return { error: null }
   }
@@ -68,6 +73,7 @@ export default function PortfolioTab() {
     if (confirmDelete.video_url) deleteStoredFile(confirmDelete.video_url)
 
     setConfirmDelete(null)
+    setStorageKey((n) => n + 1)
     await refresh()
   }
 
@@ -82,6 +88,8 @@ export default function PortfolioTab() {
         </div>
         <Button onClick={() => setEditing('new')}>Add work</Button>
       </div>
+
+      <StorageMeter refreshKey={storageKey} />
 
       {actionError && <Notice tone="error" className="mb-4">{actionError}</Notice>}
 

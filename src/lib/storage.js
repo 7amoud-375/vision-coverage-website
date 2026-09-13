@@ -12,6 +12,21 @@ export const MAX_VIDEO_BYTES = 50 * 1024 * 1024
 
 export const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/webm'
 
+// Total bucket budget. Postgres has no per-bucket quota, so this is enforced
+// here rather than in SQL. Deliberately under the free plan's 1 GB so hitting
+// it produces a clear message from us rather than an opaque failure from
+// Supabase - and leaves room for the poster images alongside the videos.
+export const STORAGE_BUDGET_BYTES = 800 * 1024 * 1024
+
+/** Where the dashboard starts warning rather than just reporting. */
+export const STORAGE_WARN_RATIO = 0.8
+
+export const prettySize = (bytes) => {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(0)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 
 const prettyMB = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -214,6 +229,26 @@ export async function uploadVideo(file, { onProgress, onStage } = {}) {
     }
   }
 
+  // Check the budget against what is actually stored rather than a cached
+  // number: two tabs, or a delete that has not reached this screen yet, would
+  // both make a stale figure wrong in the direction that matters.
+  onStage?.('Checking space')
+  const usage = await getStorageUsage()
+  if (!usage.error) {
+    // The poster is uploaded alongside the video; allow for it so the budget is
+    // not quietly overshot by the thing we add ourselves.
+    const needed = file.size + 200 * 1024
+    if (usage.bytes + needed > STORAGE_BUDGET_BYTES) {
+      const overBy = usage.bytes + needed - STORAGE_BUDGET_BYTES
+      return {
+        error:
+          `Not enough space. ${prettySize(usage.bytes)} of ${prettySize(STORAGE_BUDGET_BYTES)} ` +
+          `is already used, and this video needs ${prettySize(file.size)}. Delete about ` +
+          `${prettySize(overBy)} of older work first, or export this one smaller.`,
+      }
+    }
+  }
+
   // Poster first: it is quick, and there is no sense uploading 40 MB of video
   // if the file turns out to be undecodable anyway.
   onStage?.('Preparing')
@@ -331,4 +366,41 @@ export async function uploadImage(file, { maxEdge = 1600, maxBytes = 500 * 1024 
   } finally {
     URL.revokeObjectURL(objectUrl)
   }
+}
+
+
+// ---------------------------------------------------------------------------
+//  Usage
+// ---------------------------------------------------------------------------
+
+/**
+ * Add up everything stored in the bucket.
+ *
+ * Listing requires owner access (the anonymous list policy was removed - see
+ * supabase/migration-storage-listing.sql), which is fine: only the dashboard
+ * ever asks.
+ *
+ * Returns { bytes, files, error }. On failure it reports zero rather than
+ * throwing, so a meter that cannot load never blocks an upload.
+ */
+export async function getStorageUsage() {
+  const all = []
+  const pageSize = 100
+
+  for (let offset = 0; offset < 2000; offset += pageSize) {
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .list('', { limit: pageSize, offset })
+
+    if (error) {
+      console.error('[storage] could not read usage', error.message)
+      return { bytes: 0, files: 0, error: error.message }
+    }
+    if (!data?.length) break
+    all.push(...data)
+    if (data.length < pageSize) break
+  }
+
+  const bytes = all.reduce((total, file) => total + (file.metadata?.size ?? 0), 0)
+  return { bytes, files: all.length, error: null }
 }
