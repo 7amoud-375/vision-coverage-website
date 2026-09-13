@@ -10,17 +10,11 @@ import Spinner from '../ui/Spinner'
 const MAX_LINKS = 8
 
 export default function ContactTab() {
-  const { whatsapp, phone, email, socials, ready, error, save } = useSiteContact()
+  const { socials, ready, error, save } = useSiteContact()
 
-  if (!ready) return <Spinner label="Loading contact details" />
+  if (!ready) return <Spinner label="Loading links" />
 
-  return (
-    <ContactForm
-      initial={{ whatsapp: whatsapp ?? '', phone: phone ?? '', email: email ?? '', socials }}
-      loadError={error}
-      onSave={save}
-    />
-  )
+  return <ContactForm initial={socials} loadError={error} onSave={save} />
 }
 
 /**
@@ -29,13 +23,7 @@ export default function ContactTab() {
  * update arriving mid-edit cannot wipe what is being typed.
  */
 function ContactForm({ initial, loadError, onSave }) {
-  const [links, setLinks] = useState(initial.socials)
-  const [details, setDetails] = useState({
-    whatsapp: initial.whatsapp,
-    phone: initial.phone,
-    email: initial.email,
-  })
-
+  const [links, setLinks] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState(null)
   const [done, setDone] = useState(null)
@@ -43,11 +31,6 @@ function ContactForm({ initial, loadError, onSave }) {
   const dirty = () => {
     setDone(null)
     setFormError(null)
-  }
-
-  const updateDetail = (field) => (e) => {
-    setDetails((prev) => ({ ...prev, [field]: e.target.value }))
-    dirty()
   }
 
   const updateLink = (index, key) => (e) => {
@@ -96,43 +79,23 @@ function ContactForm({ initial, loadError, onSave }) {
       return
     }
 
-    // wa.me needs bare digits, so accept whatever punctuation was typed and
-    // strip it rather than rejecting a perfectly good number.
-    const whatsapp = details.whatsapp.replace(/D/g, '')
-    if (details.whatsapp && (whatsapp.length < 6 || whatsapp.length > 20)) {
-      setFormError('That WhatsApp number does not look right. Use the full international number.')
-      return
-    }
-
-    const email = details.email.trim()
-    if (email && !/^[^@s]+@[^@s]+.[^@s]+$/.test(email)) {
-      setFormError('That email address does not look right.')
-      return
-    }
-
     setBusy(true)
     setFormError(null)
     setDone(null)
 
-    const { error: err } = await onSave({
-      whatsapp,
-      phone: details.phone.trim(),
-      email,
-      socials: cleaned,
-    })
+    const { error: err } = await onSave(cleaned)
     setBusy(false)
 
     if (err) {
       setFormError(
         err.includes('site_contact')
-          ? 'The site_contact table is missing columns. Run supabase/migration-contact-details.sql first.'
+          ? 'The site_contact table does not exist yet. Run supabase/migration-social-links.sql first.'
           : err
       )
       return
     }
 
     setLinks(cleaned)
-    setDetails({ whatsapp, phone: details.phone.trim(), email })
     setDone(
       cleaned.length
         ? `Saved. ${cleaned.length} link${cleaned.length === 1 ? '' : 's'} now show in the footer.`
@@ -144,7 +107,7 @@ function ContactForm({ initial, loadError, onSave }) {
     <div className="max-w-2xl">
       <h2 className="font-display text-2xl font-semibold text-ink">Contact</h2>
       <p className="mt-0.5 text-sm text-muted">
-        Everything on the public site that tells a client how to reach you.
+        The social icons in the footer of the public site.
       </p>
 
       {loadError && (
@@ -163,46 +126,6 @@ function ContactForm({ initial, loadError, onSave }) {
       )}
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-5">
-        <div className="card p-5">
-          <h3 className="font-display text-base font-semibold uppercase tracking-[0.12em] text-ink">
-            How clients reach you
-          </h3>
-
-          <div className="mt-4 space-y-4">
-            <Field
-              label="WhatsApp number"
-              type="tel"
-              inputMode="tel"
-              value={details.whatsapp}
-              onChange={updateDetail('whatsapp')}
-              placeholder="+20 100 200 3000"
-              maxLength={32}
-              hint="Full international number. This is what the floating WhatsApp button uses - leave it empty and the button does not appear at all."
-            />
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Phone"
-                type="tel"
-                inputMode="tel"
-                value={details.phone}
-                onChange={updateDetail('phone')}
-                placeholder="+20 100 200 3000"
-                maxLength={32}
-              />
-              <Field
-                label="Email"
-                type="email"
-                inputMode="email"
-                value={details.email}
-                onChange={updateDetail('email')}
-                placeholder="hello@visionzekra.com"
-                maxLength={160}
-              />
-            </div>
-          </div>
-        </div>
-
         <div className="card p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-display text-base font-semibold uppercase tracking-[0.12em] text-ink">
@@ -299,7 +222,7 @@ function ContactForm({ initial, loadError, onSave }) {
 
         <div className="flex justify-end">
           <Button type="submit" loading={busy}>
-            {busy ? 'Saving' : 'Save contact details'}
+            {busy ? 'Saving' : 'Save links'}
           </Button>
         </div>
       </form>

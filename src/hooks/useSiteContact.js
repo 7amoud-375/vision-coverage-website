@@ -2,11 +2,6 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { supabase, isSupabaseConfigured, isMissingTable } from '../lib/supabaseClient'
 import { contact as envContact } from '../lib/config'
 
-const clean = (value) => {
-  const trimmed = typeof value === 'string' ? value.trim() : ''
-  return trimmed || null
-}
-
 // ---------------------------------------------------------------------------
 //  A single shared store, rather than per-component state.
 //
@@ -35,12 +30,10 @@ function emit(next) {
 async function load() {
   if (!isSupabaseConfigured) return
 
-  // `*` rather than naming the columns on purpose. The contact-details
-  // migration adds whatsapp/phone/email after the social-links one creates the
-  // table, so asking for them by name returns a 400 in between - and a missing
-  // *column* is not caught by the missing-*table* check. Selecting everything
-  // works whichever migrations have run; absent fields simply read as undefined
-  // and fall through to the env values below.
+  // `*` rather than naming columns: the table has gained and lost columns
+  // across migrations, and naming one that is not there yet returns a 400 that
+  // the missing-table check does not catch. Selecting everything is immune to
+  // that, and absent fields simply read as undefined.
   const { data, error } = await supabase
     .from('site_contact')
     .select('*')
@@ -92,13 +85,11 @@ function subscribe(listener) {
 const getSnapshot = () => snapshot
 
 /**
- * Every contact detail on the public site: the WhatsApp number, phone, email
- * and social links.
+ * The social links shown on the public site, editable from the dashboard.
  *
- * The database is the source of truth; anything it does not have falls back to
- * the matching environment variable, so the site works before the migration is
- * run. Only null-ish values fall through, so a detail the owner clears in the
- * dashboard genuinely disappears rather than reverting to a stale env var.
+ * The database is the source of truth. Before the migration has been run it
+ * falls back to whatever the Instagram and Facebook env vars hold, so the
+ * footer keeps its links rather than going blank in between.
  */
 export function useSiteContact() {
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
@@ -107,9 +98,6 @@ export function useSiteContact() {
   const value = useMemo(() => {
     if (!row) {
       return {
-        whatsapp: envContact.whatsappNumber,
-        phone: envContact.phone,
-        email: envContact.email,
         socials: [
           envContact.instagram && { platform: 'instagram', url: envContact.instagram },
           envContact.facebook && { platform: 'facebook', url: envContact.facebook },
@@ -117,30 +105,34 @@ export function useSiteContact() {
       }
     }
 
-    return {
-      whatsapp: clean(row.whatsapp) ?? envContact.whatsappNumber,
-      phone: clean(row.phone) ?? envContact.phone,
-      email: clean(row.email) ?? envContact.email,
-      socials: Array.isArray(row.socials) ? row.socials : [],
-    }
+    return { socials: Array.isArray(row.socials) ? row.socials : [] }
   }, [row])
 
-  /** Build a wa.me link, or null when no number is set anywhere. */
+  /**
+   * The WhatsApp link, taken from the social links like any other platform -
+   * there is no separate number field. Returns null when none is set, so every
+   * WhatsApp affordance on the site disappears together rather than becoming a
+   * dead link.
+   *
+   * A wa.me address carrying no query string gets the message appended, which
+   * is what pre-fills the chat. Anything else is left exactly as entered.
+   */
   const whatsappLink = useCallback(
-    (message = "Hi! I'd like to ask about media coverage.") =>
-      value.whatsapp
-        ? `https://wa.me/${value.whatsapp}?text=${encodeURIComponent(message)}`
-        : null,
-    [value.whatsapp],
+    (message = "Hi! I'd like to ask about media coverage.") => {
+      const entry = value.socials.find((s) => s.platform === 'whatsapp')
+      if (!entry?.url) return null
+      if (entry.url.includes('wa.me/') && !entry.url.includes('?')) {
+        return `${entry.url}?text=${encodeURIComponent(message)}`
+      }
+      return entry.url
+    },
+    [value.socials],
   )
 
-  const save = useCallback(async (next) => {
+  const save = useCallback(async (socials) => {
     const { error: err } = await supabase.from('site_contact').upsert({
       id: 1,
-      whatsapp: next.whatsapp || null,
-      phone: next.phone || null,
-      email: next.email || null,
-      socials: next.socials,
+      socials,
       updated_at: new Date().toISOString(),
     })
     if (err) return { error: err.message }
@@ -148,5 +140,16 @@ export function useSiteContact() {
     return { error: null }
   }, [])
 
-  return { ...value, ready, error, whatsappLink, save, refresh: load }
+  return {
+    ...value,
+    // Still environment-configured; only the links are editable in the
+    // dashboard.
+    phone: envContact.phone,
+    email: envContact.email,
+    ready,
+    error,
+    whatsappLink,
+    save,
+    refresh: load,
+  }
 }
