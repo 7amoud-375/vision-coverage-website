@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { supabase, isSupabaseConfigured, isMissingTable } from '../lib/supabaseClient'
 
 /**
  * The social links shown in the footer, editable from the dashboard.
@@ -27,7 +27,7 @@ export function useSocialLinks() {
 
     if (err) {
       // Expected before the migration is run; not worth an error on the page.
-      if (err.code === '42P01') {
+      if (isMissingTable(err)) {
         console.warn('[social] site_contact table not created yet - using .env fallback')
         setError(null)
       } else {

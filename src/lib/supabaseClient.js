@@ -26,3 +26,21 @@ export const supabase = isSupabaseConfigured
       },
     })
   : null
+
+/**
+ * True when an error means "that table does not exist yet".
+ *
+ * Two codes matter, and only checking one is why a missing table surfaced as a
+ * red error on the page instead of quietly falling back:
+ *   42P01    - Postgres' own undefined_table, raised by the database
+ *   PGRST205 - PostgREST's "could not find the table in the schema cache",
+ *              which is what actually comes back through the REST API
+ *
+ * The message is checked too, because PostgREST has used different codes for
+ * this across versions.
+ */
+export function isMissingTable(error) {
+  if (!error) return false
+  if (error.code === '42P01' || error.code === 'PGRST205') return true
+  return /could not find the table|does not exist/i.test(error.message ?? '')
+}

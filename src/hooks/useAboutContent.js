@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { supabase, isSupabaseConfigured, isMissingTable } from '../lib/supabaseClient'
 
 /**
  * The editable part of the About section: the portrait and the highlight rows.
@@ -29,7 +29,7 @@ export function useAboutContent() {
     if (err) {
       // A missing table is an expected state before the migration runs, not
       // something to shout about on the public page.
-      if (err.code === '42P01') {
+      if (isMissingTable(err)) {
         console.warn('[about] about_content table not created yet - using config defaults')
         setError(null)
       } else {
