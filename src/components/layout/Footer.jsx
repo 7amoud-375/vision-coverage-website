@@ -92,7 +92,7 @@ export default function Footer() {
           {hasSocial && (
             <div>
               <h3 className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-accent">
-                Follow
+                Follow us
               </h3>
               <div className="flex flex-wrap gap-3">
                 {links.map((link) => (
