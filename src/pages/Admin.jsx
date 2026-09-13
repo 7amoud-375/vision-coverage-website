@@ -7,6 +7,7 @@ import AdminLogin from '../components/admin/AdminLogin'
 import ReservationsTab from '../components/admin/ReservationsTab'
 import PortfolioTab from '../components/admin/PortfolioTab'
 import AboutTab from '../components/admin/AboutTab'
+import ContactTab from '../components/admin/ContactTab'
 import AccountTab from '../components/admin/AccountTab'
 import Button from '../components/ui/Button'
 import Notice from '../components/ui/Notice'
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'reservations', label: 'Reservations' },
   { id: 'portfolio', label: 'Work' },
   { id: 'about', label: 'About' },
+  { id: 'contact', label: 'Contact' },
   { id: 'account', label: 'Account' },
 ]
 
@@ -95,7 +97,9 @@ export default function Admin() {
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-content gap-1 px-5 sm:px-8">
+        {/* Five tabs no longer fit a phone, so the strip scrolls rather than wrapping
+            into a second row under the header. */}
+        <nav className="scrollbar-brand mx-auto flex max-w-content gap-1 overflow-x-auto px-5 sm:px-8">
           {TABS.map((item) => (
             <button
               key={item.id}
@@ -103,7 +107,7 @@ export default function Admin() {
               onClick={() => setTab(item.id)}
               aria-current={tab === item.id ? 'page' : undefined}
               className={[
-                '-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
+                '-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
                 tab === item.id
                   ? 'border-accent text-accent'
                   : 'border-transparent text-muted hover:text-ink',
@@ -119,6 +123,7 @@ export default function Admin() {
         {tab === 'reservations' && <ReservationsTab />}
         {tab === 'portfolio' && <PortfolioTab />}
         {tab === 'about' && <AboutTab />}
+        {tab === 'contact' && <ContactTab />}
         {tab === 'account' && <AccountTab user={user} />}
       </main>
     </div>

@@ -1,8 +1,11 @@
 import { site, contact, whatsappLink } from '../../lib/config'
 import Wordmark from '../brand/Wordmark'
+import SocialIcon from '../brand/SocialIcon'
+import { platformLabel } from '../../lib/socialPlatforms'
+import { useSocialLinks } from '../../hooks/useSocialLinks'
 import Watermark from '../brand/Watermark'
 
-function SocialLink({ href, label, children }) {
+function SocialLink({ href, label, platform }) {
   if (!href) return null
   return (
     <a
@@ -10,20 +13,32 @@ function SocialLink({ href, label, children }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
+      title={label}
       className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line
                  text-muted transition-colors hover:border-accent hover:text-accent"
     >
-      {children}
+      <SocialIcon platform={platform} />
     </a>
   )
 }
 
 export default function Footer() {
   const whatsapp = whatsappLink()
+  const { socials } = useSocialLinks()
+
+  // The database is the source of truth once the migration has been run. Until
+  // then - or if the owner has not added any - fall back to whatever is set in
+  // .env, so the footer never loses its links mid-migration.
+  const links = socials.length
+    ? socials
+    : [
+        contact.instagram && { platform: 'instagram', url: contact.instagram },
+        contact.facebook && { platform: 'facebook', url: contact.facebook },
+      ].filter(Boolean)
   // Anything unset is simply absent - see the note in src/lib/config.js about
   // why there are no placeholder fallbacks here.
   const hasContact = contact.phone || contact.email || whatsapp
-  const hasSocial = contact.instagram || contact.facebook
+  const hasSocial = links.length > 0
 
   return (
     <footer id="contact" className="relative overflow-hidden border-t border-line bg-surface/40">
@@ -79,19 +94,15 @@ export default function Footer() {
               <h3 className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-accent">
                 Follow
               </h3>
-              <div className="flex gap-3">
-                <SocialLink href={contact.instagram} label="Instagram">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <rect x="3" y="3" width="18" height="18" rx="5" />
-                    <circle cx="12" cy="12" r="4" />
-                    <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none" />
-                  </svg>
-                </SocialLink>
-                <SocialLink href={contact.facebook} label="Facebook">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-                    <path d="M13.5 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.25-1.5 1.55-1.5h1.65V3.6c-.29-.04-1.27-.12-2.41-.12-2.38 0-4.01 1.45-4.01 4.12v2.3H7.5V13h2.78v8h3.22z" />
-                  </svg>
-                </SocialLink>
+              <div className="flex flex-wrap gap-3">
+                {links.map((link) => (
+                  <SocialLink
+                    key={link.platform + link.url}
+                    href={link.url}
+                    platform={link.platform}
+                    label={platformLabel(link.platform)}
+                  />
+                ))}
               </div>
             </div>
           )}
