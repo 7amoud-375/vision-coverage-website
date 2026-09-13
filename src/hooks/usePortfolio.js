@@ -42,7 +42,11 @@ export function usePortfolio() {
     if (!isSupabaseConfigured) return
 
     const channel = supabase
-      .channel('portfolio')
+      // Unique per hook instance. Supabase hands back the same channel object
+      // for a repeated name, and calling .on() on one already subscribed throws
+      // - so two components using this hook on one page would crash the app.
+      // This makes that wasteful rather than fatal.
+      .channel(`portfolio-${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'portfolio_items' },
