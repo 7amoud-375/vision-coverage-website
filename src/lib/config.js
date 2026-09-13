@@ -49,11 +49,10 @@ export const contact = {
   facebook: clean(env.VITE_FACEBOOK_URL),
 }
 
-/** Returns null when no WhatsApp number is configured, so callers can hide the UI. */
-export const whatsappLink = (message = "Hi! I'd like to ask about media coverage.") =>
-  contact.whatsappNumber
-    ? `https://wa.me/${contact.whatsappNumber}?text=${encodeURIComponent(message)}`
-    : null
+// whatsappLink used to live here, reading the env var directly. The number is
+// now editable from the dashboard, so building the link needs data that only
+// loads at runtime - see useSiteContact(), which also falls back to these env
+// values when the database has nothing.
 
 if (import.meta.env.DEV) {
   const missing = Object.entries(contact)

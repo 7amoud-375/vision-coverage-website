@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAvailability } from '../../hooks/useAvailability'
 import { toDateKey, formatKeyLong } from '../../lib/dates'
 import { isSupabaseConfigured } from '../../lib/supabaseClient'
-import { whatsappLink } from '../../lib/config'
+import { useSiteContact } from '../../hooks/useSiteContact'
 import BookingCalendar from '../reservation/BookingCalendar'
 import CalendarLegend from '../reservation/CalendarLegend'
 import BookingForm from '../reservation/BookingForm'
@@ -19,6 +19,7 @@ export default function Reservation() {
 
   // Computed once: null when no number is configured, so every WhatsApp
   // affordance below disappears together rather than becoming a dead link.
+  const { whatsappLink } = useSiteContact()
   const whatsapp = whatsappLink()
 
   const handleSelect = (day) => {

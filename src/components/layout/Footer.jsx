@@ -1,8 +1,8 @@
-import { site, contact, whatsappLink } from '../../lib/config'
+import { site } from '../../lib/config'
 import Wordmark from '../brand/Wordmark'
 import SocialIcon from '../brand/SocialIcon'
 import { platformLabel } from '../../lib/socialPlatforms'
-import { useSocialLinks } from '../../hooks/useSocialLinks'
+import { useSiteContact } from '../../hooks/useSiteContact'
 import Watermark from '../brand/Watermark'
 
 function SocialLink({ href, label, platform }) {
@@ -23,21 +23,11 @@ function SocialLink({ href, label, platform }) {
 }
 
 export default function Footer() {
+  const { phone, email, socials, whatsappLink } = useSiteContact()
   const whatsapp = whatsappLink()
-  const { socials } = useSocialLinks()
 
-  // The database is the source of truth once the migration has been run. Until
-  // then - or if the owner has not added any - fall back to whatever is set in
-  // .env, so the footer never loses its links mid-migration.
-  const links = socials.length
-    ? socials
-    : [
-        contact.instagram && { platform: 'instagram', url: contact.instagram },
-        contact.facebook && { platform: 'facebook', url: contact.facebook },
-      ].filter(Boolean)
-  // Anything unset is simply absent - see the note in src/lib/config.js about
-  // why there are no placeholder fallbacks here.
-  const hasContact = contact.phone || contact.email || whatsapp
+  const links = socials
+  const hasContact = phone || email || whatsapp
   const hasSocial = links.length > 0
 
   return (
@@ -56,20 +46,20 @@ export default function Footer() {
                 Get in touch
               </h3>
               <ul className="space-y-2.5 text-sm text-muted">
-                {contact.phone && (
+                {phone && (
                   <li>
                     <a
-                      href={`tel:${contact.phone.replace(/\s/g, '')}`}
+                      href={`tel:${phone.replace(/\s/g, '')}`}
                       className="transition-colors hover:text-ink"
                     >
-                      {contact.phone}
+                      {phone}
                     </a>
                   </li>
                 )}
-                {contact.email && (
+                {email && (
                   <li>
-                    <a href={`mailto:${contact.email}`} className="transition-colors hover:text-ink">
-                      {contact.email}
+                    <a href={`mailto:${email}`} className="transition-colors hover:text-ink">
+                      {email}
                     </a>
                   </li>
                 )}

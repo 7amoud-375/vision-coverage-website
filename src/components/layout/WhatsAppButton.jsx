@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { whatsappLink } from '../../lib/config'
+import { useSiteContact } from '../../hooks/useSiteContact'
 
 /**
  * Floating WhatsApp CTA, present on every screen of the public site.
@@ -11,6 +11,7 @@ import { whatsappLink } from '../../lib/config'
  * channel is never actually absent while this is tucked away.
  */
 export default function WhatsAppButton() {
+  const { whatsappLink } = useSiteContact()
   const href = whatsappLink()
   const [hidden, setHidden] = useState(false)
 
