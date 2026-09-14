@@ -305,10 +305,138 @@ export function storagePathFromUrl(url) {
 //  Images
 // ---------------------------------------------------------------------------
 
-export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp'
+// The picker offers everything a phone or camera is likely to hand over.
+// `image/*` covers the formats browsers decode natively; the explicit
+// extensions matter because Windows frequently reports an EMPTY file.type for
+// .heic, so a type-only filter hides the very files an iPhone produces.
+export const IMAGE_ACCEPT = 'image/*,.heic,.heif,.HEIC,.HEIF,.tif,.tiff,.avif,.webp'
 
 /** Generous, because the file is resized in the browser before it is sent. */
 const MAX_IMAGE_INPUT_BYTES = 25 * 1024 * 1024
+
+// Camera RAW is deliberately not supported. Every format below needs a
+// manufacturer-specific decoder measured in megabytes, and a RAW file is a
+// sensor dump that still needs developing - the right answer is to export a
+// JPEG from Lightroom, not to guess at a rendering in the browser.
+const RAW_EXTENSIONS = /\.(cr2|cr3|nef|nrw|arw|srf|sr2|dng|raf|orf|rw2|pef|x3f|3fr|erf)$/i
+
+/**
+ * Identify a file by its first bytes rather than by name or MIME type.
+ *
+ * Both of those lie routinely: Windows reports "" for .heic, some phones hand
+ * over a .jpg name for an HEIC payload, and a renamed file carries whatever
+ * extension it was given. The magic bytes are the only honest answer, and
+ * picking the wrong decoder is the difference between a portrait and an error.
+ */
+async function sniffImageFormat(file) {
+  const head = new Uint8Array(await file.slice(0, 16).arrayBuffer())
+  if (head.length < 12) return null
+
+  const ascii = (start, length) => String.fromCharCode(...head.subarray(start, start + length))
+
+  if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return 'jpeg'
+  if (head[0] === 0x89 && ascii(1, 3) === 'PNG') return 'png'
+  if (ascii(0, 3) === 'GIF') return 'gif'
+  if (ascii(0, 2) === 'BM') return 'bmp'
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') return 'webp'
+
+  // HEIC and AVIF are both ISO base media containers; only the brand at byte 8
+  // tells them apart, and only one of the two decodes natively.
+  if (ascii(4, 4) === 'ftyp') {
+    const brand = ascii(8, 4)
+    if (/^(heic|heix|hevc|heim|heis|hevm|hevs|mif1|msf1)$/.test(brand)) return 'heic'
+    if (/^(avif|avis)$/.test(brand)) return 'avif'
+    return null
+  }
+
+  // TIFF, little- and big-endian. Most RAW files are TIFF containers too, which
+  // is why the extension check runs before this one.
+  if (ascii(0, 2) === 'II' && head[2] === 0x2a) return 'tiff'
+  if (ascii(0, 2) === 'MM' && head[3] === 0x2a) return 'tiff'
+
+  return null
+}
+
+/**
+ * Decode a blob the browser already understands, into something drawable.
+ *
+ * createImageBitmap is tried first: it decodes off the main thread and needs no
+ * object URL at all. The <img> path stays as a fallback for anything that
+ * refuses it - and note that path needs `blob:` in the CSP's img-src, which is
+ * exactly what broke portrait uploads on the deployed site once already.
+ */
+async function decodeNatively(blob) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      return await createImageBitmap(blob)
+    } catch {
+      // Fall through - some browsers reject formats here that <img> accepts.
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(blob)
+  try {
+    return await new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('decode failed'))
+      img.src = objectUrl
+    })
+  } finally {
+    // Safe to revoke here: the pixels are decoded by the time onload fires, and
+    // drawImage no longer needs the URL to resolve.
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
+/**
+ * Turn any supported file into something canvas can draw.
+ *
+ * The two converters are imported dynamically, and only when a file actually
+ * needs one. Between them they are several megabytes - loading that on every
+ * visit, for a conversion the owner performs a handful of times, would be
+ * indefensible on a site where bandwidth is the binding constraint. This way
+ * the cost lands on whoever uploads an iPhone photo, once, in the dashboard.
+ */
+async function decodeImage(file, format) {
+  if (format === 'heic') {
+    // The /csp build is the one meant for a strict Content-Security-Policy.
+    // It still spawns its worker from a blob: URL, so worker-src must allow
+    // blob: - see vercel.json.
+    const { heicTo } = await import('heic-to/csp')
+    const jpeg = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 })
+    return decodeNatively(jpeg)
+  }
+
+  if (format === 'tiff') {
+    const UTIF = (await import('utif2')).default
+    const buffer = await file.arrayBuffer()
+    const pages = UTIF.decode(buffer)
+    if (!pages.length) throw new Error('no image in tiff')
+
+    const page = pages[0]
+    UTIF.decodeImage(buffer, page, pages)
+    const rgba = UTIF.toRGBA8(page)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = page.width
+    canvas.height = page.height
+    canvas
+      .getContext('2d')
+      .putImageData(new ImageData(new Uint8ClampedArray(rgba), page.width, page.height), 0, 0)
+    return canvas
+  }
+
+  return decodeNatively(file)
+}
+
+/** ImageBitmap, <img> and <canvas> each spell their dimensions differently. */
+function sizeOf(source) {
+  return {
+    width: source.naturalWidth || source.width,
+    height: source.naturalHeight || source.height,
+  }
+}
 
 /**
  * Resize and re-encode an image in the browser, then upload it.
@@ -318,37 +446,50 @@ const MAX_IMAGE_INPUT_BYTES = 25 * 1024 * 1024
  * the binding limit on the free tier. Re-encoding to a sensible edge length and
  * stepping the JPEG quality down until it fits the budget keeps the page light.
  *
+ * HEIC and TIFF are converted first, so an iPhone portrait or a scanned print
+ * uploads like anything else. Everything lands as JPEG whatever went in, which
+ * is what keeps the public site predictable.
+ *
  * Returns { url, error } and never throws.
  */
 export async function uploadImage(file, { maxEdge = 1600, maxBytes = 500 * 1024 } = {}) {
   if (!file) return { error: 'No file selected.' }
 
-  const looksLikeImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(file.name)
-  if (!looksLikeImage) return { error: 'Please choose a JPG, PNG or WebP image.' }
+  if (RAW_EXTENSIONS.test(file.name)) {
+    return {
+      error: 'Camera RAW files cannot be read in a browser. Please export a JPEG and upload that.',
+    }
+  }
 
   if (file.size > MAX_IMAGE_INPUT_BYTES) {
     return { error: `That image is ${prettyMB(file.size)}. Please pick one under 25 MB.` }
   }
 
-  const objectUrl = URL.createObjectURL(file)
+  const format = await sniffImageFormat(file)
+  if (!format) {
+    return {
+      error:
+        'That file does not look like an image. JPG, PNG, HEIC, WebP, AVIF, GIF, BMP and TIFF all work.',
+    }
+  }
 
   try {
-    const image = await new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error('decode failed'))
-      img.src = objectUrl
-    })
+    const source = await decodeImage(file, format)
+    const { width, height } = sizeOf(source)
 
-    const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight))
+    const scale = Math.min(1, maxEdge / Math.max(width, height))
     const canvas = document.createElement('canvas')
-    canvas.width = Math.round(image.naturalWidth * scale)
-    canvas.height = Math.round(image.naturalHeight * scale)
+    canvas.width = Math.round(width * scale)
+    canvas.height = Math.round(height * scale)
     if (!canvas.width || !canvas.height) return { error: 'That image could not be read.' }
 
     const ctx = canvas.getContext('2d')
     ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
+    // ImageBitmaps hold their decoded pixels until explicitly released, and a
+    // 12 MP photo is ~48 MB of them - worth closing when several are uploaded
+    // one after another.
+    if (typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap) source.close()
 
     // Step the quality down rather than guessing once: the same pixel count
     // compresses very differently depending on the subject.
@@ -361,12 +502,21 @@ export async function uploadImage(file, { maxEdge = 1600, maxBytes = 500 * 1024 
 
     return await putObject(`${crypto.randomUUID()}.jpg`, blob, 'image/jpeg')
   } catch (err) {
-    console.error('[storage] image upload failed', err)
-    return { error: 'That image could not be read. Try a JPG or PNG.' }
-  } finally {
-    URL.revokeObjectURL(objectUrl)
+    console.error('[storage] image upload failed', format, err)
+
+    // Name the format that failed. The old message said "Try a JPG or PNG" for
+    // every cause alike, which sent the owner hunting through their photo
+    // library when the real problem was a Content-Security-Policy rule.
+    if (format === 'heic') {
+      return {
+        error: 'That iPhone photo could not be converted. Please export it as JPEG and try again.',
+      }
+    }
+    return { error: `That ${format.toUpperCase()} image could not be read. Try a JPG or PNG.` }
   }
 }
+
+
 
 
 // ---------------------------------------------------------------------------
