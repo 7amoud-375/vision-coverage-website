@@ -37,13 +37,16 @@ export default function PortfolioTab() {
     // Only now that the row definitely points at the new files is it safe to
     // bin the old ones. Doing this inside the picker would strand the item on a
     // deleted file if the owner replaced a video and then cancelled.
+    //
+    // Awaited for the same reason as in handleDelete: storageKey is bumped just
+    // below, and the meter re-reads the bucket as soon as it changes.
     if (previous) {
-      if (previous.video && previous.video !== payload.video_url) {
-        deleteStoredFile(previous.video)
-      }
-      if (previous.poster && previous.poster !== payload.thumbnail_url) {
-        deleteStoredFile(previous.poster)
-      }
+      const stale = [
+        previous.video !== payload.video_url ? previous.video : null,
+        previous.poster !== payload.thumbnail_url ? previous.poster : null,
+      ].filter(Boolean)
+
+      await Promise.all(stale.map((url) => deleteStoredFile(url)))
     }
 
     // Realtime normally delivers the change, but refreshing keeps the dashboard
@@ -69,12 +72,31 @@ export default function PortfolioTab() {
     }
 
     // Bin the stored poster too, so the bucket does not fill with orphans.
-    if (confirmDelete.thumbnail_url) deleteStoredFile(confirmDelete.thumbnail_url)
-    if (confirmDelete.video_url) deleteStoredFile(confirmDelete.video_url)
+    //
+    // Awaited deliberately. These used to be fired without waiting, and the
+    // very next line asks the meter to re-read the bucket - so the listing went
+    // out alongside the delete requests and still counted the files being
+    // removed. The meter showed the pre-delete figure until the tab was
+    // reloaded, which read as "deleting does not free any space".
+    const removals = await Promise.all(
+      [confirmDelete.thumbnail_url, confirmDelete.video_url]
+        .filter(Boolean)
+        .map((url) => deleteStoredFile(url)),
+    )
 
     setConfirmDelete(null)
     setStorageKey((n) => n + 1)
     await refresh()
+
+    // The row is already gone, so this is not a failed delete - but the files
+    // are still occupying the budget, and only the owner can do anything about
+    // it. Saying so beats a meter that quietly refuses to move.
+    const failed = removals.find((result) => result.error)
+    if (failed) {
+      setActionError(
+        `The entry was removed, but its files are still in storage: ${failed.error}`,
+      )
+    }
   }
 
   return (

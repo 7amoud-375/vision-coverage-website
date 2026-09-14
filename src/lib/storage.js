@@ -275,7 +275,9 @@ export async function uploadVideo(file, { onProgress, onStage } = {}) {
 
   if (videoResult.error) {
     // Do not leave an orphan poster behind for a video that never landed.
-    if (posterUrl) deleteStoredFile(posterUrl)
+    // Awaited so the poster is gone before the caller refreshes the storage
+    // meter, which would otherwise still count it.
+    if (posterUrl) await deleteStoredFile(posterUrl)
     return { error: videoResult.error }
   }
 
@@ -288,9 +290,13 @@ export async function uploadVideo(file, { onProgress, onStage } = {}) {
  */
 export async function deleteStoredFile(url) {
   const path = storagePathFromUrl(url)
-  if (!path) return
+  if (!path) return { error: null }
   const { error } = await supabase.storage.from(BUCKET).remove([path])
-  if (error) console.warn('[storage] could not remove', path, error.message)
+  if (error) {
+    console.warn('[storage] could not remove', path, error.message)
+    return { error: error.message }
+  }
+  return { error: null }
 }
 
 /** Public URL -> object path, or null if the URL is not one of ours. */
