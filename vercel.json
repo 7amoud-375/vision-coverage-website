@@ -16,7 +16,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://www.instagram.com https://*.cdninstagram.com; frame-src https://www.instagram.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.instagram.com"
+          "value": "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; media-src 'self' blob: https://*.supabase.co; script-src 'self' 'unsafe-inline' https://www.instagram.com https://*.cdninstagram.com; frame-src https://www.instagram.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.instagram.com"
         }
       ]
     }
