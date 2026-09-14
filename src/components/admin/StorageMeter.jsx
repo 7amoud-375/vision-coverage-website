@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  deleteStoredPaths,
+  findUnreferencedFiles,
   getStorageUsage,
   prettySize,
   STORAGE_BUDGET_BYTES,
   STORAGE_WARN_RATIO,
 } from '../../lib/storage'
+import Button from '../ui/Button'
 
 /**
  * How much of the storage budget is used.
@@ -17,6 +20,9 @@ import {
 export default function StorageMeter({ refreshKey = 0 }) {
   const [usage, setUsage] = useState(null)
   const [error, setError] = useState(null)
+  const [unused, setUnused] = useState(null)
+  const [cleaning, setCleaning] = useState(false)
+  const [cleanupNote, setCleanupNote] = useState(null)
 
   const load = useCallback(async () => {
     const result = await getStorageUsage()
@@ -26,7 +32,29 @@ export default function StorageMeter({ refreshKey = 0 }) {
     }
     setError(null)
     setUsage(result)
+
+    // Which of those bytes belong to nothing. Reported separately because a
+    // meter that will not move after a delete is otherwise unexplainable: the
+    // space is real, it just belongs to uploads no entry ever referenced.
+    const orphans = await findUnreferencedFiles()
+    setUnused(orphans.error ? null : orphans)
   }, [])
+
+  const cleanUp = useCallback(async () => {
+    if (!unused?.files.length) return
+    setCleaning(true)
+    setCleanupNote(null)
+
+    const { removed, error: err } = await deleteStoredPaths(unused.files.map((f) => f.name))
+    setCleaning(false)
+
+    setCleanupNote(
+      err
+        ? `Removed ${removed} of ${unused.files.length}, then stopped: ${err}`
+        : `Permanently deleted ${removed} unused ${removed === 1 ? 'file' : 'files'}.`,
+    )
+    await load()
+  }, [unused, load])
 
   useEffect(() => {
     // Fetch on mount, and again whenever the Work tab reports that stored files
@@ -90,6 +118,26 @@ export default function StorageMeter({ refreshKey = 0 }) {
           exporting new videos at 720p.
         </p>
       ) : null}
+
+      {/* Files belonging to no entry at all. Choosing a video uploads it
+          immediately, so abandoning the form - or replacing a video - can strand
+          one. They are invisible everywhere else in the dashboard. */}
+      {unused?.files.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line pt-3">
+          <p className="text-sm text-muted">
+            <span className="font-medium text-ink">
+              {unused.files.length} unused {unused.files.length === 1 ? 'file' : 'files'}
+            </span>{' '}
+            ({prettySize(unused.bytes)}) belong to no entry - left over from uploads that were
+            never saved.
+          </p>
+          <Button size="sm" variant="danger" onClick={cleanUp} loading={cleaning}>
+            Delete permanently
+          </Button>
+        </div>
+      )}
+
+      {cleanupNote && <p className="mt-2.5 text-sm text-muted">{cleanupNote}</p>}
     </section>
   )
 }

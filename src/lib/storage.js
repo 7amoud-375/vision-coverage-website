@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { supabase, isMissingTable } from './supabaseClient'
 
 const BUCKET = 'portfolio'
 
@@ -539,7 +539,8 @@ export async function uploadImage(file, { maxEdge = 1600, maxBytes = 500 * 1024 
  * Returns { bytes, files, error }. On failure it reports zero rather than
  * throwing, so a meter that cannot load never blocks an upload.
  */
-export async function getStorageUsage() {
+/** Every object in the bucket. Returns { all, error } and never throws. */
+async function listAllObjects() {
   const all = []
   const pageSize = 100
 
@@ -549,14 +550,108 @@ export async function getStorageUsage() {
       .list('', { limit: pageSize, offset })
 
     if (error) {
-      console.error('[storage] could not read usage', error.message)
-      return { bytes: 0, files: 0, error: error.message }
+      console.error('[storage] could not list the bucket', error.message)
+      return { all: [], error: error.message }
     }
     if (!data?.length) break
     all.push(...data)
     if (data.length < pageSize) break
   }
 
-  const bytes = all.reduce((total, file) => total + (file.metadata?.size ?? 0), 0)
-  return { bytes, files: all.length, error: null }
+  return { all, error: null }
+}
+
+const sizeOfObject = (file) => file.metadata?.size ?? 0
+
+export async function getStorageUsage() {
+  const { all, error } = await listAllObjects()
+  if (error) return { bytes: 0, files: 0, error }
+
+  return { bytes: all.reduce((total, f) => total + sizeOfObject(f), 0), files: all.length, error: null }
+}
+
+// ---------------------------------------------------------------------------
+//  Unreferenced files
+// ---------------------------------------------------------------------------
+
+/**
+ * A file may be uploaded and then never referenced by anything.
+ *
+ * The pickers upload on selection rather than on submit, so choosing a video
+ * and then closing the form without saving leaves the file behind. So does a
+ * replaced video whose delete was refused. Nothing in the dashboard lists those
+ * files, yet they count against the storage budget - which reads as "deleting
+ * my work did not free any space", because the space in question belongs to
+ * uploads that were never part of any entry.
+ *
+ * Anything newer than the grace window is left alone: it may well belong to a
+ * form that is open in another tab right now, still being filled in.
+ */
+export async function findUnreferencedFiles({ graceMinutes = 60 } = {}) {
+  const empty = { files: [], bytes: 0, error: null }
+
+  const { all, error } = await listAllObjects()
+  if (error) return { ...empty, error }
+
+  const referenced = new Set()
+  const reference = (url) => {
+    const path = storagePathFromUrl(url)
+    if (path) referenced.add(path)
+  }
+
+  // Every table that can point at a stored file must be read successfully.
+  // Deleting on the strength of an incomplete reference list would remove a
+  // file that is still in use, so any failure here aborts rather than guesses.
+  const { data: items, error: itemsError } = await supabase
+    .from('portfolio_items')
+    .select('video_url, thumbnail_url')
+  if (itemsError) return { ...empty, error: itemsError.message }
+  items?.forEach((row) => {
+    reference(row.video_url)
+    reference(row.thumbnail_url)
+  })
+
+  const { data: about, error: aboutError } = await supabase
+    .from('about_content')
+    .select('photo_url')
+  // A table that does not exist yet holds no references, which is safe. Any
+  // other failure is not.
+  if (aboutError && !isMissingTable(aboutError)) return { ...empty, error: aboutError.message }
+  about?.forEach((row) => reference(row.photo_url))
+
+  const cutoff = Date.now() - graceMinutes * 60 * 1000
+  const orphans = all.filter((file) => {
+    if (file.name.startsWith('.')) return false // Supabase's own folder markers
+    if (referenced.has(file.name)) return false
+    const created = Date.parse(file.created_at || file.updated_at || '')
+    return Number.isFinite(created) ? created < cutoff : true
+  })
+
+  return {
+    files: orphans.map((f) => ({ name: f.name, size: sizeOfObject(f) })),
+    bytes: orphans.reduce((total, f) => total + sizeOfObject(f), 0),
+    error: null,
+  }
+}
+
+/**
+ * Permanently remove the given object paths. Returns { removed, error }.
+ *
+ * Batched because Supabase caps how many paths one remove() call accepts, and a
+ * long-running dashboard could accumulate more orphans than that.
+ */
+export async function deleteStoredPaths(paths) {
+  let removed = 0
+
+  for (let i = 0; i < paths.length; i += 50) {
+    const batch = paths.slice(i, i + 50)
+    const { error } = await supabase.storage.from(BUCKET).remove(batch)
+    if (error) {
+      console.error('[storage] could not remove', batch, error.message)
+      return { removed, error: error.message }
+    }
+    removed += batch.length
+  }
+
+  return { removed, error: null }
 }
